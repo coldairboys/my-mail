@@ -48,23 +48,59 @@
     try { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(EXP_KEY); } catch (e) {}
   }
 
+  /* 预初始化令牌客户端：让点击时能同步发起授权弹窗，避免被浏览器按「非用户手势」拦截 */
+  let pendingResolve = null, pendingReject = null;
+  function ensureClient(google) {
+    if (tokenClient || !configured()) return;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CFG.GOOGLE_CLIENT_ID,
+      scope: CFG.GMAIL_SCOPES,
+      callback: (resp) => {
+        if (resp && resp.access_token) {
+          storeToken(resp.access_token, Number(resp.expires_in || 3600));
+          if (pendingResolve) pendingResolve(resp.access_token);
+        } else if (pendingReject) pendingReject(new Error("没有拿到授权令牌"));
+        pendingResolve = pendingReject = null;
+      },
+      error_callback: (err) => {
+        if (pendingReject) pendingReject(new Error("授权被取消或失败" + (err && err.type ? "：" + err.type : "")));
+        pendingResolve = pendingReject = null;
+      },
+    });
+  }
+  if (configured()) loadGIS().then(ensureClient).catch(() => {});
+
   async function signIn() {
     if (!configured()) throw new Error("尚未配置 GOOGLE_CLIENT_ID（见 README 的接入步骤）");
     const google = await loadGIS();
+    ensureClient(google);
     return new Promise((resolve, reject) => {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CFG.GOOGLE_CLIENT_ID,
-        scope: CFG.GMAIL_SCOPES,
-        callback: (resp) => {
-          if (resp && resp.access_token) {
-            storeToken(resp.access_token, Number(resp.expires_in || 3600));
-            resolve(resp.access_token);
-          } else reject(new Error("没有拿到授权令牌"));
-        },
-        error_callback: (err) => reject(new Error("授权被取消或失败" + (err && err.type ? "：" + err.type : ""))),
-      });
+      pendingResolve = resolve; pendingReject = reject;
       tokenClient.requestAccessToken({ prompt: getStoredToken() ? "" : "consent" });
     });
+  }
+
+  /* ---------- 整页跳转登录（隐式流程）：弹窗打不开时（App 内嵌浏览器等）的回退 ----------
+     需在 Google Cloud 控制台为该客户端登记重定向 URI：站点根地址本身 */
+  function redirectUri() { return window.location.origin + window.location.pathname; }
+  function startRedirectLogin() {
+    const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    u.searchParams.set("client_id", CFG.GOOGLE_CLIENT_ID);
+    u.searchParams.set("redirect_uri", redirectUri());
+    u.searchParams.set("response_type", "token");
+    u.searchParams.set("scope", CFG.GMAIL_SCOPES);
+    u.searchParams.set("include_granted_scopes", "true");
+    u.searchParams.set("prompt", "consent");
+    window.location.assign(u.toString());
+  }
+  function consumeRedirectToken() {
+    if (!window.location.hash || !window.location.hash.includes("access_token=")) return false;
+    const p = new URLSearchParams(window.location.hash.slice(1));
+    const token = p.get("access_token");
+    if (!token) return false;
+    storeToken(token, Number(p.get("expires_in") || 3600));
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    return true;
   }
 
   async function api(path, options = {}) {
@@ -219,5 +255,5 @@
     return out;
   }
 
-  window.MyMailGmail = { configured, signIn, getStoredToken, clearToken, loadAll, send, translateParagraphs };
+  window.MyMailGmail = { configured, signIn, startRedirectLogin, consumeRedirectToken, getStoredToken, clearToken, loadAll, send, translateParagraphs };
 })();

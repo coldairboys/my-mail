@@ -537,6 +537,11 @@
       await G().signIn();
       await enterLive();
     } catch (e) {
+      if (/popup_failed_to_open/.test(e.message)) {
+        btn.textContent = "弹窗被拦，正在改为整页跳转登录…";
+        G().startRedirectLogin();
+        return;
+      }
       showLogin("登录失败：" + e.message);
     }
     btn.disabled = false; btn.textContent = "使用 Google 登录";
@@ -566,7 +571,8 @@
   const first = visibleEmails()[0];
   if (first) select(first.id, false);
   if (G().configured()) {
-    if (G().getStoredToken()) enterLive().catch(() => showLogin("会话已过期，请重新登录"));
+    if (G().consumeRedirectToken()) enterLive().catch(() => showLogin("拉取邮件失败，请重新登录"));
+    else if (G().getStoredToken()) enterLive().catch(() => showLogin("会话已过期，请重新登录"));
     else showLogin();
   }
 })();
