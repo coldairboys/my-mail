@@ -10,7 +10,8 @@
 
 GitHub Pages：**https://coldairboys.github.io/my-mail/**
 
-（部署由 GitHub Actions 自动完成，推送到 `main` 分支后稍等一两分钟即可刷新。）
+（部署方式：仓库 Settings → Pages → Deploy from a branch，选 `main` 分支、根目录。
+推送到 `main` 后，Pages 会自动重新发布，稍等一两分钟刷新即可。）
 
 ## 功能
 
@@ -49,9 +50,6 @@ my-mail/
 │   └── js/
 │       ├── data.js             # 演示数据：文件夹、标签、示例邮件（含中英对照译文）
 │       └── app.js              # 应用逻辑：筛选、渲染、翻译切换、写邮件、localStorage 持久化
-├── .github/
-│   └── workflows/
-│       └── pages.yml           # GitHub Actions：自动部署到 GitHub Pages
 ├── LICENSE                     # MIT
 └── README.md
 ```
@@ -71,7 +69,7 @@ my-mail/
 
 - 纯 HTML + CSS + 原生 JavaScript，无框架、无构建、无依赖，打开即跑
 - 状态存储：`localStorage`（键 `mymail-state-v1`）
-- 部署：GitHub Actions → GitHub Pages
+- 部署：GitHub Pages（从 `main` 分支根目录发布）
 
 ## License
 
