@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Mail · 清爽邮件</title>
+  <meta name="description" content="My Mail — 一个清爽的三栏邮件管理网页版：收件箱、标签、搜索、一键翻译、写邮件，开源免费。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%233b82f6'/><path d='M22 36l28 20 28-20' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='20' y='30' width='60' height='44' rx='8' fill='none' stroke='white' stroke-width='7'/></svg>" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <!-- 应用窗口：仿桌面客户端的悬浮窗口造型 -->
+  <div class="app-window" id="app">
+
+    <!-- ===== 左栏：账号 + 文件夹 + 标签 ===== -->
+    <aside class="sidebar">
+      <div class="traffic-lights" aria-hidden="true">
+        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+      </div>
+
+      <div class="account">
+        <div class="avatar avatar-account">Y</div>
+        <div class="account-text">
+          <div class="account-name">Yangming</div>
+          <div class="account-mail">demo@mymail.app</div>
+        </div>
+      </div>
+
+      <button class="btn-compose" id="btnCompose">✎&nbsp; 写邮件</button>
+      <button class="btn-ghost" id="btnFocusSearch">⌕&nbsp; 搜索</button>
+      <button class="btn-ghost" id="btnSettings">⚙&nbsp; 设置</button>
+
+      <nav class="nav-section" aria-label="邮件文件夹">
+        <div class="nav-title">邮件</div>
+        <ul id="folderList" class="nav-list"><!-- JS 渲染 --></ul>
+      </nav>
+
+      <nav class="nav-section" aria-label="标签">
+        <div class="nav-title">标签</div>
+        <ul id="labelList" class="nav-list"><!-- JS 渲染 --></ul>
+      </nav>
+
+      <div class="sidebar-footer"><span class="sync-dot"></span> 已同步 · 演示数据</div>
+    </aside>
+
+    <!-- ===== 中栏：邮件列表 ===== -->
+    <section class="list-pane">
+      <header class="list-header">
+        <h1 id="currentFolderName">收件箱</h1>
+        <div class="list-tools">
+          <button class="icon-btn" id="btnFilterUnread" title="只看未读">⧩</button>
+          <button class="icon-btn" id="btnMarkAllRead" title="全部标为已读">✓✓</button>
+        </div>
+      </header>
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input id="searchInput" type="search" placeholder="搜索发件人、主题、正文…" autocomplete="off" />
+        <button class="search-clear" id="btnClearSearch" hidden>×</button>
+      </div>
+      <ul id="mailList" class="mail-list"><!-- JS 渲染 --></ul>
+      <div id="listEmpty" class="list-empty" hidden>这里空空的 🌿</div>
+    </section>
+
+    <!-- ===== 右栏：阅读区 ===== -->
+    <main class="reading-pane">
+      <header class="reading-toolbar">
+        <div class="toolbar-left">
+          <button class="icon-btn" data-action="prev" title="上一封">‹</button>
+          <button class="icon-btn" data-action="next" title="下一封">›</button>
+        </div>
+        <div class="toolbar-right">
+          <button class="icon-btn" data-action="snooze" title="延后到明天">◷</button>
+          <button class="icon-btn" data-action="archive" title="归档">#</button>
+          <button class="icon-btn" data-action="spam" title="标为垃圾邮件">⊘</button>
+          <button class="icon-btn" data-action="trash" title="删除">🗑</button>
+        </div>
+      </header>
+
+      <article id="readingContent" class="reading-content"><!-- JS 渲染 --></article>
+      <div id="readingEmpty" class="reading-empty" hidden>
+        <div class="reading-empty-icon">✉</div>
+        <p>选一封邮件开始阅读</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== 写邮件弹窗 ===== -->
+  <div class="modal-backdrop" id="composeModal" hidden>
+    <div class="modal">
+      <header class="modal-header">
+        <span>新邮件</span>
+        <button class="icon-btn" id="btnCloseCompose" title="存为草稿并关闭">×</button>
+      </header>
+      <label class="field"><span>收件人</span><input id="composeTo" type="email" placeholder="name@example.com" /></label>
+      <label class="field"><span>主题</span><input id="composeSubject" type="text" placeholder="（无主题）" /></label>
+      <textarea id="composeBody" class="compose-body" placeholder="写点什么…"></textarea>
+      <footer class="modal-footer">
+        <span class="modal-hint" id="composeHint"></span>
+        <button class="btn-secondary" id="btnSaveDraft">存草稿</button>
+        <button class="btn-primary" id="btnSend">发送</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== 设置弹窗（演示） ===== -->
+  <div class="modal-backdrop" id="settingsModal" hidden>
+    <div class="modal modal-small">
+      <header class="modal-header">
+        <span>设置</span>
+        <button class="icon-btn" id="btnCloseSettings">×</button>
+      </header>
+      <label class="setting-row">
+        <span>默认翻译目标语言</span>
+        <select id="settingLang">
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <label class="setting-row">
+        <span>恢复演示数据</span>
+        <button class="btn-secondary" id="btnResetData">恢复</button>
+      </label>
+      <p class="setting-note">当前为前端演示版：数据只保存在本机浏览器（localStorage），不连接真实邮箱。接入 Gmail / Outlook 的方案见仓库 README 的 Roadmap。</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
