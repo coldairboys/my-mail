@@ -21,6 +21,7 @@
     users: P('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
     bell: P('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'),
     clip: P('<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),
+    chart: P('<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>'),
     clock: P('<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 13.5"/>'),
     edit: P('<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'),
     send: P('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
@@ -53,17 +54,24 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        if (Array.isArray(s.emails)) return Object.assign({ lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable" }, s);
+        if (Array.isArray(s.emails)) return Object.assign({ lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable", rules: [] }, s);
       }
     } catch (e) { /* 存档损坏就重置 */ }
-    return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable" };
+    return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable", rules: [] };
   }
   const state = loadState();
-  let mode = "demo";            // demo = 演示数据 | live = 真实 Gmail（内存，不落盘）
-  let liveEmails = [];
-  let gmailProfile = null;
+  let mode = "demo";            // demo = 演示数据 | live = 任一真实账号
+  let view = "demo";            // demo | gmail | outlook | unified（统一收件箱）
+  let gmailEmails = [], outlookEmails = [];
+  let gmailOn = false, outlookOn = false;
+  let gmailProfile = null, outlookProfile = null;
   let liveNoticeShown = false;
-  const src = () => (mode === "live" ? liveEmails : state.emails);
+  const src = () => view === "gmail" ? gmailEmails
+    : view === "outlook" ? outlookEmails
+    : view === "unified" ? [...gmailEmails, ...outlookEmails]
+    : state.emails;
+  const storeOf = (m) => (m && m.provider === "outlook") ? outlookEmails
+    : (m && m.provider === "gmail") ? gmailEmails : state.emails;
   let currentFolder = "inbox";
   let currentLabel = null;
   let selectedId = null;
@@ -201,7 +209,7 @@
     $("#listEmpty").hidden = list.length > 0;
     $("#listCount").textContent = list.length ? `共 ${list.length} 封` : "";
     const sa = $("#btnSearchAll");
-    if (mode === "live" && searchQuery) { sa.hidden = false; sa.textContent = `在 Gmail 中搜索全部「${searchQuery}」`; }
+    if (mode === "live" && searchQuery) { sa.hidden = false; sa.textContent = `在邮箱中搜索全部「${searchQuery}」`; }
     else sa.hidden = true;
     updateBatchBar();
     updatePager(list);
@@ -259,7 +267,7 @@
         if (mode !== "live" || !at.attachmentId) { toast("演示附件仅作展示"); return; }
         chip.disabled = true;
         try {
-          const data = await window.MyMailGmail.downloadAttachment(m.id, at.attachmentId);
+          const data = await (m.provider === "outlook" ? window.MyMailOutlook : window.MyMailGmail).downloadAttachment(m.id, at.attachmentId);
           const bin = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
           const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
           const url = URL.createObjectURL(new Blob([bytes], { type: at.mimeType || "application/octet-stream" }));
@@ -282,11 +290,15 @@
       }
       showTranslated = !showTranslated; renderReading();
     };
-    const openReply = () => openCompose({ to: m.address, subject: "Re: " + m.subject });
+    const openReply = () => openCompose({ to: m.address, subject: "Re: " + m.subject, provider: m.provider });
     const openFwd = () => openCompose({ subject: "Fwd: " + m.subject, body: "\n\n—— 转发邮件 ——\n" + (m.body || []).join("\n") });
     $("#btnReply").onclick = openReply; $("#btnReply2").onclick = openReply;
     $("#btnForward").onclick = openFwd; $("#btnForward2").onclick = openFwd;
-    $("#btnUnsub").onclick = () => toast("已退订（演示，不会真的发送）");
+    $("#btnUnsub").onclick = () => {
+      if (m.unsub) { window.open(m.unsub, "_blank", "noopener"); toast("已打开官方退订页"); }
+      else if (mode === "live") toast("这封邮件没有提供退订链接");
+      else toast("已退订（演示，不会真的发送）");
+    };
     $("#btnShowImages").onclick = () => toast("已显示此发件人的图片（演示）");
     updatePager();
   }
@@ -298,6 +310,12 @@
     selectedId = id;
     showTranslated = false;
     const m = byId(id);
+    if (m && m.provider === "outlook" && !m.bodyLoaded) {
+      window.MyMailOutlook.fetchFull(m.id).then(({ body, attachments }) => {
+        m.body = body; m.attachments = attachments; m.bodyLoaded = true;
+        if (selectedId === m.id) renderReading();
+      }).catch(() => { m.bodyLoaded = true; });
+    }
     if (m && markRead && m.unread) { m.unread = false; save(); }
     document.querySelector(".app").classList.add("reading-open");
     renderNav(); renderList(); renderReading();
@@ -314,7 +332,7 @@
   $("#btnBack").onclick = () => document.querySelector(".app").classList.remove("reading-open");
 
   function trashMail(m, silent) {
-    const arr = src();
+    const arr = storeOf(m);
     const snapshot = { folder: m.folder, archived: m.archived, index: arr.indexOf(m), removed: false };
     if (m.folder === "trash") {
       arr.splice(snapshot.index, 1);
@@ -494,12 +512,17 @@
     const btn = $("#btnSearchAll");
     btn.disabled = true; btn.textContent = "正在 Gmail 中搜索…";
     try {
-      const found = await G().searchAll(searchQuery);
-      const map = new Map(liveEmails.map((m) => [m.id, m]));
       let added = 0;
-      for (const em of found) if (!map.has(em.id)) { liveEmails.push(em); added++; }
+      const jobs = [];
+      if (view === "gmail" || view === "unified") jobs.push([G(), gmailEmails]);
+      if (view === "outlook" || view === "unified") jobs.push([window.MyMailOutlook, outlookEmails]);
+      for (const [svc, store] of jobs) {
+        const found = await svc.searchAll(searchQuery);
+        const map = new Map(store.map((m) => [m.id, m]));
+        for (const em of found) if (!map.has(em.id)) { store.push(em); added++; }
+      }
       renderAll();
-      toast(added ? `从 Gmail 找到并载入 ${added} 封` : "没有更多结果了");
+      toast(added ? `从邮箱服务器找到并载入 ${added} 封` : "没有更多结果了");
     } catch (e) { toast("搜索失败：" + e.message); }
     btn.disabled = false;
   };
@@ -511,14 +534,20 @@
   };
   $("#menuEmptyFolder").onclick = () => {
     const fid = currentFolder;
-    const arr = src();
-    arr.splice(0, arr.length, ...arr.filter((m) => m.folder !== fid));
+    const stores = view === "unified" ? [gmailEmails, outlookEmails] : [src()];
+    for (const arr of stores) arr.splice(0, arr.length, ...arr.filter((m) => m.folder !== fid));
     selectedId = null; save();
     $("#moreMenu").hidden = true; renderAll();
     toast(fid === "trash" ? "废纸篓已清空" : "垃圾邮件已清空");
   };
   function resetData() {
-    if (mode === "live") { enterLive(); toast("已重新从 Gmail 拉取"); return; }
+    if (view !== "demo") {
+      const jobs = [];
+      if (gmailOn) jobs.push(enterGmail(false));
+      if (outlookOn) jobs.push(enterOutlook(false));
+      Promise.all(jobs).then(() => { updateChrome(); renderAll(); toast("已重新拉取"); });
+      return;
+    }
     localStorage.removeItem(STORAGE_KEY);
     state.emails = structuredClone(SEED_EMAILS);
     selectedId = null; currentFolder = "inbox"; currentLabel = null; filterMode = "all";
@@ -528,6 +557,20 @@
 
   /* ---------------- 写邮件 ---------------- */
   function openCompose(prefill = {}) {
+    const accSel = $("#composeAccount");
+    const opts = [];
+    if (gmailOn) opts.push(["gmail", "Gmail · " + (gmailProfile.emailAddress || "")]);
+    if (outlookOn) opts.push(["outlook", "Outlook · " + (outlookProfile.emailAddress || "")]);
+    $("#composeAccountRow").hidden = opts.length === 0;
+    accSel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
+    if (prefill.provider && opts.some(([v]) => v === prefill.provider)) accSel.value = prefill.provider;
+    else if (view === "gmail" || view === "outlook") accSel.value = view;
+    const contacts = new Map();
+    for (const m of [...state.emails, ...gmailEmails, ...outlookEmails]) {
+      if (m.address) contacts.set(m.address, m.from);
+      if (m.to && m.to.includes("@")) contacts.set(m.to, m.to);
+    }
+    $("#contactsList").innerHTML = [...contacts.entries()].map(([addr, name]) => `<option value="${esc(addr)}">${esc(name || "")}</option>`).join("");
     $("#composeTo").value = prefill.to || "";
     $("#composeSubject").value = prefill.subject || "";
     $("#composeBody").value = prefill.body || "";
@@ -536,17 +579,24 @@
     $("#composeTo").focus();
   }
   function closeCompose() { $("#composeModal").hidden = true; }
-  function pushMail(partial) {
-    src().unshift(Object.assign({
+  function pushMail(partial, target) {
+    (target || src()).unshift(Object.assign({
       id: "u" + Date.now(), ts: Date.now(), from: "我", address: "demo@mymail.app", to: "",
       date: "今天", time: "刚刚", subject: "（无主题）", snippet: "",
       label: null, unread: false, starred: false, folder: "sent", body: [], bodyZh: null,
     }, partial));
   }
+  function composeTarget() {
+    const acc = $("#composeAccount") ? $("#composeAccount").value : "";
+    if (acc === "gmail") return { store: gmailEmails, provider: "gmail" };
+    if (acc === "outlook") return { store: outlookEmails, provider: "outlook" };
+    return { store: state.emails, provider: undefined };
+  }
   function composeSnapshot(folder) {
     const to = $("#composeTo").value.trim(), subject = $("#composeSubject").value.trim(), bodyText = $("#composeBody").value;
     if (!to && !subject && !bodyText.trim()) return false;
-    pushMail({ to: to || "（未填收件人）", subject: subject || "（无主题）", snippet: bodyText.trim().slice(0, 60), body: bodyText.split(/\n{2,}/).filter(Boolean), folder });
+    const t = composeTarget();
+    pushMail({ to: to || "（未填收件人）", subject: subject || "（无主题）", snippet: bodyText.trim().slice(0, 60), body: bodyText.split(/\n{2,}/).filter(Boolean), folder, provider: t.provider, bodyLoaded: true }, t.store);
     return true;
   }
   $("#btnCompose").onclick = () => { closeSidebar(); openCompose(); };
@@ -559,11 +609,13 @@
     const subject = $("#composeSubject").value.trim(), bodyText = $("#composeBody").value;
     if (mode === "live") {
       const btn = $("#btnSend");
+      const t = composeTarget();
+      const svc = t.provider === "outlook" ? window.MyMailOutlook : window.MyMailGmail;
       btn.disabled = true; btn.textContent = "发送中…";
       try {
-        await window.MyMailGmail.send({ to, subject, body: bodyText });
-        pushMail({ to, subject: subject || "（无主题）", snippet: bodyText.trim().slice(0, 60), body: bodyText.split(/\n{2,}/).filter(Boolean), folder: "sent" });
-        closeCompose(); renderAll(); toast("已通过 Gmail 发送");
+        await svc.send({ to, subject, body: bodyText });
+        pushMail({ to, subject: subject || "（无主题）", snippet: bodyText.trim().slice(0, 60), body: bodyText.split(/\n{2,}/).filter(Boolean), folder: "sent", provider: t.provider, bodyLoaded: true }, t.store);
+        closeCompose(); renderAll(); toast(t.provider === "outlook" ? "已通过 Outlook 发送" : "已通过 Gmail 发送");
       } catch (e) { $("#composeHint").textContent = "发送失败：" + e.message; }
       btn.disabled = false; btn.textContent = "发送";
       return;
@@ -572,7 +624,32 @@
   };
 
   /* ---------------- 设置 ---------------- */
-  $("#btnSettings").onclick = () => { closeSidebar(); $("#settingLang").value = state.lang; $("#settingTheme").value = state.themeMode; const d = $("#settingDensity"); if (d) d.value = state.density || "comfortable"; $("#settingsModal").hidden = false; };
+  function renderStats() {
+    const all = src().filter((m) => m.folder !== "trash" && m.folder !== "spam");
+    const bySender = new Map();
+    for (const m of all) {
+      const key = m.address || m.from;
+      const cur = bySender.get(key) || { name: m.from, addr: key, count: 0, unread: 0 };
+      cur.count++; if (m.unread) cur.unread++;
+      bySender.set(key, cur);
+    }
+    const top = [...bySender.values()].sort((a, b) => b.count - a.count).slice(0, 12);
+    const unreadTotal = all.filter((m) => m.unread).length;
+    const attTotal = all.filter((m) => (m.attachments && m.attachments.length) || m.hasAttachments).length;
+    $("#statsSummary").textContent = `已加载 ${all.length} 封 · 未读 ${unreadTotal} 封 · 带附件 ${attTotal} 封 · 发件人共 ${bySender.size} 个`;
+    $("#statsList").innerHTML = top.map((t) =>
+      `<li><button class="stats-row" data-addr="${esc(t.addr)}"><span class="stats-name">${esc(t.name)}</span><span class="stats-meta">${esc(t.addr)}</span><span class="stats-count">${t.count} 封${t.unread ? ` · 未读 ${t.unread}` : ""}</span></button></li>`).join("");
+    $("#statsList").querySelectorAll("[data-addr]").forEach((b) => (b.onclick = () => {
+      searchQuery = b.dataset.addr;
+      const si = $("#searchInput"); si.value = searchQuery;
+      $("#btnClearSearch").hidden = false;
+      $("#statsModal").hidden = true;
+      renderList();
+    }));
+  }
+  $("#btnStats").onclick = () => { closeSidebar(); renderStats(); $("#statsModal").hidden = false; };
+  $("#btnCloseStats").onclick = () => { $("#statsModal").hidden = true; };
+  $("#btnSettings").onclick = () => { renderRules(); closeSidebar(); $("#settingLang").value = state.lang; $("#settingTheme").value = state.themeMode; const d = $("#settingDensity"); if (d) d.value = state.density || "comfortable"; $("#settingsModal").hidden = false; };
   const densitySel = $("#settingDensity");
   if (densitySel) densitySel.onchange = (e) => { state.density = e.target.value; save(); applyDensity(); };
   function applyDensity() { document.body.classList.toggle("density-compact", state.density === "compact"); }
@@ -610,56 +687,146 @@
     $("#loginError").hidden = !errorMsg;
     if (errorMsg) $("#loginError").textContent = errorMsg;
     $("#loginConfigNote").hidden = G().configured();
+    const mn = $("#loginMsNote"); if (mn) mn.hidden = !window.MyMailOutlook || window.MyMailOutlook.configured();
     $("#loginScreen").hidden = false;
   }
   function hideLogin() { $("#loginScreen").hidden = true; }
-  async function enterLive() {
+  /* ---------------- 过滤规则 ---------------- */
+  const RULE_ACTIONS = { spam: "移到垃圾邮件", trash: "删除", archive: "归档", read: "标已读", star: "加星标" };
+  function applyRules(list) {
+    const rules = state.rules || [];
+    if (!rules.length) return 0;
+    let hit = 0;
+    for (const m of list) for (const r of rules) {
+      const hay = r.field === "subject" ? (m.subject || "") : ((m.from || "") + " " + (m.address || ""));
+      if (r.kw && hay.toLowerCase().includes(String(r.kw).toLowerCase())) {
+        hit++;
+        if (r.action === "star") m.starred = true;
+        else if (r.action === "read") m.unread = false;
+        else if (r.action === "archive" && m.folder === "inbox") m.archived = true;
+        else if (r.action === "spam") { m.folder = "spam"; m.archived = false; }
+        else if (r.action === "trash") { m.folder = "trash"; m.archived = false; }
+      }
+    }
+    return hit;
+  }
+  function renderRules() {
+    const ul = $("#rulesList");
+    if (!ul) return;
+    const rules = state.rules || [];
+    ul.innerHTML = rules.length ? rules.map((r, i) =>
+      `<li><span>${r.field === "subject" ? "主题" : "发件人"}含「${esc(r.kw)}」→ ${RULE_ACTIONS[r.action] || r.action}</span><button class="rules-del" data-rule="${i}" title="删除规则">×</button></li>`).join("")
+      : '<li class="rules-empty">暂无规则</li>';
+    ul.querySelectorAll("[data-rule]").forEach((b) => (b.onclick = () => {
+      state.rules.splice(Number(b.dataset.rule), 1); save(); renderRules(); toast("规则已删除");
+    }));
+  }
+  $("#btnAddRule").onclick = () => {
+    const kw = $("#ruleKeyword").value.trim();
+    if (!kw) { toast("先填关键词"); return; }
+    state.rules = state.rules || [];
+    state.rules.push({ field: $("#ruleField").value, kw, action: $("#ruleAction").value });
+    $("#ruleKeyword").value = "";
+    save(); renderRules(); toast("规则已添加，下次加载邮箱时生效");
+  };
+
+  /* ---------------- 多账号 ---------------- */
+  const MS = () => window.MyMailOutlook;
+  function updateChrome() {
+    let name = "Yangming", mail = "demo@mymail.app", init = "Y";
+    if (view === "gmail" && gmailProfile) { mail = gmailProfile.emailAddress || ""; name = (mail.split("@")[0] || "Gmail"); init = initialOf(mail || "G"); }
+    if (view === "outlook" && outlookProfile) { mail = outlookProfile.emailAddress || ""; name = (mail.split("@")[0] || "Outlook"); init = initialOf(mail || "O"); }
+    if (view === "unified") { name = "全部账号"; mail = "Gmail + Outlook"; init = "全"; }
+    setAccountUI(name, mail, init);
+    $("#btnAuthText").textContent = gmailOn ? "退出 Gmail" : "登录 Gmail";
+    $("#btnAuthMsText").textContent = outlookOn ? "退出 Outlook" : "登录 Outlook";
+    mode = view === "demo" ? "demo" : "live";
+    document.body.classList.toggle("live-mode", (gmailOn || outlookOn) && view !== "demo");
+    const sw = $("#accountSwitch");
+    if (!gmailOn && !outlookOn) sw.hidden = true;
+    else {
+      sw.hidden = false;
+      const chips = [];
+      if (gmailOn && outlookOn) chips.push(["unified", "全部"]);
+      if (gmailOn) chips.push(["gmail", "Gmail"]);
+      if (outlookOn) chips.push(["outlook", "Outlook"]);
+      chips.push(["demo", "演示"]);
+      sw.innerHTML = chips.map(([v, t]) => `<button class="account-chip${view === v ? " active" : ""}" data-view="${v}">${t}</button>`).join("");
+    }
+    const foot = document.querySelector(".sidebar-footer");
+    if (view === "gmail" && gmailProfile) foot.innerHTML = '<span class="sync-dot"></span> 已同步 · ' + (gmailProfile.messagesTotal ? `邮箱共 ${gmailProfile.messagesTotal} 封 · ` : "") + 'Gmail 实时数据（不落盘）';
+    else if (view === "outlook" && outlookProfile) foot.innerHTML = '<span class="sync-dot"></span> 已同步 · ' + (outlookProfile.messagesTotal ? `邮箱共 ${outlookProfile.messagesTotal} 封 · ` : "") + 'Outlook 实时数据（不落盘）';
+    else if (view === "unified") foot.innerHTML = '<span class="sync-dot"></span> 已同步 · 统一收件箱（Gmail + Outlook，不落盘）';
+    else foot.innerHTML = '<span class="sync-dot"></span> 已同步 · 演示数据';
+    const sn = $("#settingsNote");
+    if (sn) sn.textContent = view === "demo"
+      ? "演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。"
+      : "真实模式：邮件只在内存中显示、不落盘；令牌约 1 小时有效。只读+发送权限下，删除/归档仅在本页内生效；过滤规则在邮箱加载时自动执行。";
+    const rl = $("#resetLabel"); if (rl) rl.textContent = view === "demo" ? "恢复演示数据" : "重新拉取当前邮箱";
+    const rb = $("#btnResetData"); if (rb) rb.textContent = view === "demo" ? "恢复" : "拉取";
+  }
+  function setView(v) {
+    view = v; selectedId = null; currentLabel = null;
+    updateChrome(); renderAll();
+    const f = visibleEmails()[0];
+    if (f) select(f.id, false);
+  }
+  $("#accountSwitch").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-view]");
+    if (chip) { closeSidebar(); setView(chip.dataset.view); }
+  });
+  async function enterGmail(switchTo = true) {
     toast("正在拉取你的 Gmail…");
     const { profile, emails } = await G().loadAll();
-    gmailProfile = profile;
-    liveEmails = emails;
-    mode = "live";
-    selectedId = null; currentFolder = "inbox"; currentLabel = null;
-    const addr = profile.emailAddress || "";
-    setAccountUI(addr.split("@")[0] || "Gmail", addr, initialOf(addr || "G"));
-    document.querySelector(".sidebar-footer").innerHTML =
-      '<span class="sync-dot"></span> 已同步 · ' + (profile.messagesTotal ? `邮箱共 ${profile.messagesTotal} 封 · ` : "") + 'Gmail 实时数据（不落盘）';
-    document.body.classList.add("live-mode");
-    const sn1 = $("#settingsNote"); if (sn1) sn1.textContent = "真实模式（Gmail）：邮件只在内存中显示、不落盘；令牌约 1 小时有效。只读+发送权限下，删除/归档仅在本页内生效。";
-    const rl1 = $("#resetLabel"); if (rl1) rl1.textContent = "重新从 Gmail 拉取";
-    const rb1 = $("#btnResetData"); if (rb1) rb1.textContent = "拉取";
-    hideLogin(); renderAll();
-    const firstLive = visibleEmails()[0];
-    if (firstLive) select(firstLive.id, false);
-    toast("已登录 Gmail：" + addr);
+    gmailProfile = profile; gmailEmails = emails; gmailOn = true;
+    const hit = applyRules(gmailEmails);
+    if (switchTo) { currentFolder = "inbox"; setView("gmail"); } else { updateChrome(); renderAll(); }
+    hideLogin();
+    toast("已登录 Gmail：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
+  }
+  async function enterOutlook(switchTo = true) {
+    toast("正在拉取你的 Outlook…");
+    const { profile, emails } = await MS().loadAll();
+    outlookProfile = profile; outlookEmails = emails; outlookOn = true;
+    const hit = applyRules(outlookEmails);
+    if (switchTo) { currentFolder = "inbox"; setView("outlook"); } else { updateChrome(); renderAll(); }
+    hideLogin();
+    toast("已登录 Outlook：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
   }
   function doGoogleLogin() {
     if (!G().configured()) { showLogin("尚未配置 Google Client ID（见 README 的接入步骤）"); return; }
     const btn = $("#btnGoogleLogin");
     btn.disabled = true; btn.textContent = "正在跳转到 Google 登录…";
-    // 整页跳转是唯一路径：弹窗在 App 内嵌浏览器里会「假打开」，
-    // 授权完成后令牌无法回传原页面（卡在「正在打开 Google 授权…」）。
     G().startRedirectLogin();
   }
+  function doMsLogin() {
+    if (!MS() || !MS().configured()) {
+      showLogin();
+      const n = $("#loginMsNote"); if (n) n.hidden = false;
+      return;
+    }
+    const btn = $("#btnMsLogin");
+    btn.disabled = true; btn.textContent = "正在跳转到微软登录…";
+    MS().startRedirectLogin();
+  }
   $("#btnGoogleLogin").onclick = doGoogleLogin;
-  $("#btnDemoEnter").onclick = () => { hideLogin(); toast("演示模式：数据为虚构示例"); };
-  $("#btnAuth").onclick = async () => {
+  $("#btnMsLogin").onclick = doMsLogin;
+  $("#btnDemoEnter").onclick = () => { hideLogin(); setView("demo"); toast("演示模式：数据为虚构示例"); };
+  $("#btnAuth").onclick = () => {
     closeSidebar();
-    if (mode === "live") {
-      G().clearToken();
-      mode = "demo"; liveEmails = []; gmailProfile = null; selectedId = null;
-      document.body.classList.remove("live-mode");
-      const sn2 = $("#settingsNote"); if (sn2) sn2.textContent = "演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。";
-      const rl2 = $("#resetLabel"); if (rl2) rl2.textContent = "恢复演示数据";
-      const rb2 = $("#btnResetData"); if (rb2) rb2.textContent = "恢复";
-      setAccountUI("Yangming", "demo@mymail.app", "Y");
-      document.querySelector(".sidebar-footer").innerHTML =
-        '<span class="sync-dot"></span> 已同步 · 演示数据';
-      renderAll();
-      const f = visibleEmails()[0];
-      if (f) select(f.id, false);
-      toast("已退出登录，回到演示模式");
-    } else showLogin();
+    if (!gmailOn) { showLogin(); return; }
+    G().clearToken(); gmailOn = false; gmailEmails = []; gmailProfile = null;
+    if (view === "gmail" || view === "unified") setView(outlookOn ? "outlook" : "demo");
+    else { updateChrome(); renderAll(); }
+    toast("已退出 Gmail");
+  };
+  $("#btnAuthMs").onclick = () => {
+    closeSidebar();
+    if (!outlookOn) { doMsLogin(); return; }
+    MS().clearToken(); outlookOn = false; outlookEmails = []; outlookProfile = null;
+    if (view === "outlook" || view === "unified") setView(gmailOn ? "gmail" : "demo");
+    else { updateChrome(); renderAll(); }
+    toast("已退出 Outlook");
   };
 
   /* ---------------- 启动 ---------------- */
@@ -670,11 +837,34 @@
   renderAll();
   const first = visibleEmails()[0];
   if (first) select(first.id, false);
-  if (G().configured()) {
-    const oauthErr = G().consumeRedirectError();
-    if (oauthErr) showLogin("Google 授权未完成：" + oauthErr + "（请重新点登录，并在验证页点左侧小字「继续」、权限页点「继续/允许」，不要点『返回到安全网页』）");
-    else if (G().consumeRedirectToken()) enterLive().catch(() => showLogin("拉取邮件失败，请重新登录"));
-    else if (G().getStoredToken()) enterLive().catch(() => showLogin("会话已过期，请重新登录"));
-    else showLogin();
-  }
+  (async function initAuth() {
+    const ms = window.MyMailOutlook;
+    if (ms && ms.configured()) {
+      let res = null;
+      try { res = await ms.consumeRedirectCode(); } catch (e) {}
+      if (res && res.ok) { try { await enterOutlook(); } catch (e) { showLogin("Outlook 拉取失败：" + e.message); } return; }
+      if (res && res.error) { showLogin("Outlook 登录失败：" + res.error); return; }
+      if (ms.getStoredToken()) { try { await enterOutlook(false); } catch (e) {} }
+    }
+    if (G().configured()) {
+      const oauthErr = G().consumeRedirectError();
+      if (oauthErr) { showLogin("Google 授权未完成：" + oauthErr + "（请重新点登录，并在验证页点左侧小字「继续」、权限页点「继续/允许」，不要点『返回到安全网页』）"); return; }
+      if (G().consumeRedirectToken()) {
+        try {
+          await enterGmail(false);
+          setView(outlookOn ? "unified" : "gmail");
+        } catch (e) { showLogin("拉取邮件失败，请重新登录"); }
+        return;
+      }
+      if (G().getStoredToken()) {
+        try {
+          await enterGmail(false);
+          setView(outlookOn ? "unified" : "gmail");
+        } catch (e) { showLogin("会话已过期，请重新登录"); }
+        return;
+      }
+      if (outlookOn) { setView("outlook"); return; }
+      showLogin();
+    } else if (outlookOn) setView("outlook");
+  })();
 })();

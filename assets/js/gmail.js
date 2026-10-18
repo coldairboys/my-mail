@@ -189,7 +189,7 @@
     const d = new Date(Number(msg.internalDate || Date.now()));
     const pad = (n) => String(n).padStart(2, "0");
     return {
-      id: msg.id,
+      id: msg.id, provider: "gmail", bodyLoaded: true,
       ts: Number(msg.internalDate || 0),
       from: from.name, address: from.address,
       to: header(h, "To") || "我",
@@ -205,6 +205,7 @@
       body: bodyParagraphs(msg),
       bodyZh: null,
       attachments: (() => { const atts = []; collectParts(msg.payload, [], atts); return atts; })(),
+      unsub: (() => { const v = header(h, "List-Unsubscribe"); const mm = /<(https?:[^>]+)>/.exec(v || ""); const mo = /<(mailto:[^>]+)>/.exec(v || ""); return mm ? mm[1] : mo ? mo[1] : null; })(),
       gmailLabelIds: labelIds,
       important: labelIds.includes("IMPORTANT"),
       category: gmailCategory(labelIds),

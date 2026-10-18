@@ -29,6 +29,9 @@ GitHub Pages：**https://coldairboys.github.io/my-mail/**
 - 💾 **本地持久化** — 已读、星标、草稿、主题等状态存在 localStorage，刷新不丢失；设置里可恢复演示数据
 - 🧪 **演示数据** — 内置邮件均为本项目原创虚构（含中英对照译文），不取材于任何真实邮件
 - 🔐 **Gmail 登录** — 登录页用 Google OAuth（只读 + 发送权限）直连 Gmail API：真实收件箱、发送真实邮件；令牌只存会话级 sessionStorage，关标签页失效
+- 🧩 **多账号（v3.5，参考 Thunderbird）** — Gmail 与 Outlook 双账号同时登录、**统一收件箱**（顶部 chips 切换 全部 / Gmail / Outlook / 演示）、写信时可选发件账号、通讯录自动补全（来自已加载邮件的联系人）
+- 🦊 **Outlook 接入** — Microsoft Graph + PKCE 整页跳转登录（个人微软账号）：收件箱/已发送/草稿/垃圾/废纸篓/归档、正文与附件按需加载、真实发送；令牌同样只存会话
+- 🧹 **过滤规则** — 设置里自建规则（发件人/主题含关键词 → 垃圾邮件/删除/归档/标已读/星标），邮箱加载时自动执行（只读权限下为本页内生效）
 - 🌐 **仿 Gmail 网页端补强（v3.4）** — 「重要邮件」与收件箱分类（推广 / 社交 / 动态，真实模式读 Gmail 的 IMPORTANT 与 CATEGORY 标签）、列表多选 + 批量归档/标已读/删除、行内一键星标、附件板块（真实附件可点下载）、Gmail 全量搜索（本地无结果时去服务器搜）、显示密度（舒适 / 紧凑）、侧栏邮箱总量统计、Gmail 式快捷键（e 归档、# 删除、r 回复）
 
 ## 本地运行
@@ -89,8 +92,9 @@ my-mail/
 ## Roadmap
 
 1. ✅ **Gmail 只读 + 发送** — OAuth 登录、真实收件箱、真实发送（见上）
-2. **Outlook 接入** — Microsoft OAuth + Graph API，与 Gmail 共用同一套界面
-3. **通用 IMAP/SMTP** — 支持任意邮箱服务商（QQ 邮箱、163、iCloud 等用应用专用密码）
+2. ✅ **Outlook 接入** — Microsoft Graph（PKCE）+ 多账号统一收件箱（见上）
+3. **通用 IMAP/SMTP** — 浏览器无法直连 IMAP/POP3（无原始 TCP），纯网页版做不到；Yahoo / iCloud / QQ / 163 等需等桌面版（Tauri）在本地实现
+4. **日历与通讯录** — 接 Google Calendar / Microsoft Graph 日历与联系人（需追加日历与通讯录权限）
 4. **服务端翻译** — 接 DeepL / 大模型 API 做服务端全文翻译
 5. **打包桌面版** — 用同一套前端代码套 Tauri，打包成 Windows / macOS 桌面应用
 

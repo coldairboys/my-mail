@@ -424,3 +424,43 @@ body.live-mode .labels-section { display: none; }
 .attach-size { color: var(--text-3); white-space: nowrap; }
 body.density-compact .mail-item-inner { padding-top: 7px; padding-bottom: 7px; }
 body.density-compact .mail-snippet { display: none; }
+
+/* ---------- v3.5：多账号 / 规则 / Outlook ---------- */
+.account-switch { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.account-switch[hidden] { display: none; }
+.account-chip {
+  border: 1px solid var(--border); background: var(--panel); color: var(--text-2);
+  border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; font-weight: 600;
+}
+.account-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-ms { margin-top: 10px; }
+.rules-block { margin: 14px 0 4px; text-align: left; }
+.rules-title { font-size: 0.86rem; font-weight: 600; margin-bottom: 8px; }
+.rules-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.rules-list li {
+  display: flex; align-items: center; gap: 8px; font-size: 0.83rem; color: var(--text-2);
+  background: var(--panel-2); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;
+}
+.rules-list li span { flex: 1; }
+.rules-del { color: var(--danger); font-weight: 700; padding: 2px 6px; }
+.rules-empty { color: var(--text-3); font-size: 0.82rem; padding: 2px 0 6px; }
+.rules-form { display: flex; gap: 6px; flex-wrap: wrap; }
+.rules-form select, .rules-form input {
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  border-radius: 8px; padding: 6px 8px; font-size: 0.84rem;
+}
+.rules-form input { flex: 1; min-width: 90px; }
+.field select {
+  border: none; background: transparent; color: var(--text); font-size: 0.94rem; flex: 1; padding: 10px 2px; outline: none;
+}
+
+/* ---------- 发件人分析 ---------- */
+.stats-list { list-style: none; margin: 6px 0; padding: 0; max-height: 46vh; overflow-y: auto; }
+.stats-row {
+  display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 10px; border-radius: 10px; font-size: 0.88rem;
+}
+.stats-row:hover { background: var(--accent-soft); }
+.stats-name { font-weight: 600; white-space: nowrap; }
+.stats-meta { color: var(--text-3); font-size: 0.78rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-count { color: var(--accent); font-weight: 600; white-space: nowrap; }
