@@ -530,21 +530,13 @@
     if (firstLive) select(firstLive.id, false);
     toast("已登录 Gmail：" + addr);
   }
-  async function doGoogleLogin() {
+  function doGoogleLogin() {
+    if (!G().configured()) { showLogin("尚未配置 Google Client ID（见 README 的接入步骤）"); return; }
     const btn = $("#btnGoogleLogin");
-    btn.disabled = true; btn.textContent = "正在打开 Google 授权…";
-    try {
-      await G().signIn();
-      await enterLive();
-    } catch (e) {
-      if (/popup_failed_to_open/.test(e.message)) {
-        btn.textContent = "弹窗被拦，正在改为整页跳转登录…";
-        G().startRedirectLogin();
-        return;
-      }
-      showLogin("登录失败：" + e.message);
-    }
-    btn.disabled = false; btn.textContent = "使用 Google 登录";
+    btn.disabled = true; btn.textContent = "正在跳转到 Google 登录…";
+    // 整页跳转是唯一路径：弹窗在 App 内嵌浏览器里会「假打开」，
+    // 授权完成后令牌无法回传原页面（卡在「正在打开 Google 授权…」）。
+    G().startRedirectLogin();
   }
   $("#btnGoogleLogin").onclick = doGoogleLogin;
   $("#btnDemoEnter").onclick = () => { hideLogin(); toast("演示模式：数据为虚构示例"); };
@@ -571,7 +563,9 @@
   const first = visibleEmails()[0];
   if (first) select(first.id, false);
   if (G().configured()) {
-    if (G().consumeRedirectToken()) enterLive().catch(() => showLogin("拉取邮件失败，请重新登录"));
+    const oauthErr = G().consumeRedirectError();
+    if (oauthErr) showLogin("Google 授权未完成：" + oauthErr + "（请重新点登录，并在验证页点左侧小字「继续」、权限页点「继续/允许」，不要点『返回到安全网页』）");
+    else if (G().consumeRedirectToken()) enterLive().catch(() => showLogin("拉取邮件失败，请重新登录"));
     else if (G().getStoredToken()) enterLive().catch(() => showLogin("会话已过期，请重新登录"));
     else showLogin();
   }

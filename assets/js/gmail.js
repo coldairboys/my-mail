@@ -93,6 +93,13 @@
     u.searchParams.set("prompt", "consent");
     window.location.assign(u.toString());
   }
+  function consumeRedirectError() {
+    if (!window.location.hash || !window.location.hash.includes("error=")) return null;
+    const p = new URLSearchParams(window.location.hash.slice(1));
+    const err = p.get("error");
+    if (err) history.replaceState(null, "", window.location.pathname + window.location.search);
+    return err;
+  }
   function consumeRedirectToken() {
     if (!window.location.hash || !window.location.hash.includes("access_token=")) return false;
     const p = new URLSearchParams(window.location.hash.slice(1));
@@ -255,5 +262,5 @@
     return out;
   }
 
-  window.MyMailGmail = { configured, signIn, startRedirectLogin, consumeRedirectToken, getStoredToken, clearToken, loadAll, send, translateParagraphs };
+  window.MyMailGmail = { configured, signIn, startRedirectLogin, consumeRedirectToken, consumeRedirectError, getStoredToken, clearToken, loadAll, send, translateParagraphs };
 })();
