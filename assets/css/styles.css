@@ -1,0 +1,255 @@
+/* My Mail · 清爽三栏邮件界面
+   设计原则：大量留白、浅灰分隔、蓝色只用于选中态和主按钮，不塞多余功能。 */
+
+:root {
+  --bg-sky-1: #a8c6e8;
+  --bg-sky-2: #d7e6f5;
+  --window-bg: #ffffff;
+  --sidebar-bg: #f7f8fa;
+  --border: #e7eaee;
+  --text: #1f2430;
+  --text-2: #6b7280;
+  --text-3: #9aa1ad;
+  --accent: #2f7cf6;
+  --accent-soft: #e8f1fe;
+  --selected: #2f7cf6;
+  --hover: #eef1f5;
+  --radius: 18px;
+  --shadow: 0 24px 70px rgba(31, 52, 92, 0.28);
+  font-size: 15px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: linear-gradient(160deg, var(--bg-sky-1), var(--bg-sky-2) 55%, #c3d9ef);
+  display: flex; align-items: center; justify-content: center;
+  padding: 28px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+ul { list-style: none; }
+
+/* ---------- 应用窗口 ---------- */
+.app-window {
+  width: min(1420px, 100%);
+  height: min(920px, calc(100vh - 56px));
+  background: var(--window-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 232px 348px 1fr;
+  overflow: hidden;
+}
+
+/* ---------- 左栏 ---------- */
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 14px 12px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto;
+}
+
+.traffic-lights { display: flex; gap: 8px; padding: 2px 4px 10px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot.red { background: #ff5f57; } .dot.yellow { background: #febc2e; } .dot.green { background: #28c840; }
+
+.account { display: flex; align-items: center; gap: 10px; padding: 4px 6px 10px; }
+.avatar {
+  width: 34px; height: 34px; border-radius: 9px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; font-size: 0.95rem;
+  background: var(--accent);
+}
+.account-name { font-weight: 600; font-size: 0.93rem; line-height: 1.25; }
+.account-mail { color: var(--text-2); font-size: 0.78rem; }
+
+.btn-compose {
+  background: #fff; border: 1px solid var(--border); border-radius: 9px;
+  padding: 7px 10px; text-align: left; font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+.btn-compose:hover { background: var(--hover); }
+.btn-ghost { padding: 6px 10px; text-align: left; border-radius: 9px; color: var(--text); font-size: 0.9rem; }
+.btn-ghost:hover { background: var(--hover); }
+
+.nav-section { margin-top: 12px; }
+.nav-title { color: var(--text-3); font-size: 0.74rem; padding: 0 10px 5px; letter-spacing: 0.04em; }
+.nav-list li {
+  display: flex; align-items: center; gap: 9px;
+  padding: 5.5px 10px; border-radius: 8px; cursor: pointer;
+  font-size: 0.9rem; color: var(--text);
+  white-space: nowrap;
+}
+.nav-list li:hover { background: var(--hover); }
+.nav-list li.active { background: #e9ebef; font-weight: 600; }
+.nav-list .nav-icon { width: 17px; text-align: center; color: var(--text-2); flex: none; }
+.nav-list .nav-count { margin-left: auto; color: var(--text-2); font-size: 0.8rem; }
+.label-dot { width: 8px; height: 8px; border-radius: 3px; flex: none; margin: 0 4.5px; }
+
+.sidebar-footer { margin-top: auto; padding: 10px; color: var(--text-3); font-size: 0.78rem; display: flex; align-items: center; gap: 7px; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #28c840; }
+
+/* ---------- 中栏：列表 ---------- */
+.list-pane { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; }
+.list-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+.list-header h1 { font-size: 1.02rem; font-weight: 600; }
+.list-tools { display: flex; gap: 2px; }
+
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 8px; font-size: 1rem; color: var(--text-2);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn.on { background: var(--accent-soft); color: var(--accent); }
+
+.search-box {
+  margin: 2px 14px 10px; display: flex; align-items: center; gap: 6px;
+  background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: 9px; padding: 0 9px;
+}
+.search-box input { flex: 1; border: none; outline: none; background: none; padding: 7px 0; font-size: 0.88rem; min-width: 0; }
+.search-icon { color: var(--text-3); }
+.search-clear { color: var(--text-3); font-size: 1.05rem; line-height: 1; }
+
+.mail-list { overflow-y: auto; flex: 1; }
+.mail-item {
+  padding: 11px 16px 11px 22px; border-bottom: 1px solid #f0f2f5;
+  cursor: pointer; position: relative;
+}
+.mail-item:hover { background: #f8fafc; }
+.mail-item.selected { background: var(--selected); color: #fff; }
+.mail-item.selected .mail-subject, .mail-item.selected .mail-snippet { color: rgba(255,255,255,0.88); }
+.mail-item.selected .mail-date, .mail-item.selected .mail-tag { color: rgba(255,255,255,0.75); }
+.mail-item.selected .unread-dot { background: #fff; }
+
+.mail-row-1 { display: flex; align-items: baseline; gap: 7px; }
+.unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; position: absolute; left: 9px; top: 19px; }
+.mail-from { font-weight: 500; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-item.unread .mail-from { font-weight: 700; }
+.mail-date { margin-left: auto; color: var(--text-2); font-size: 0.78rem; flex: none; }
+.mail-subject { font-size: 0.89rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-item.unread .mail-subject { font-weight: 600; }
+.mail-snippet { color: var(--text-2); font-size: 0.84rem; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-tag {
+  display: inline-block; margin-left: 7px; padding: 0.5px 7px; border-radius: 6px;
+  background: #f0f2f5; color: var(--text-2); font-size: 0.72rem; vertical-align: 1px;
+}
+.mail-item.selected .mail-tag { background: rgba(255,255,255,0.22); }
+.mail-star { color: #f5a623; margin-left: 5px; font-size: 0.8rem; }
+
+.list-empty { padding: 40px 0; text-align: center; color: var(--text-3); }
+
+/* ---------- 右栏：阅读 ---------- */
+.reading-pane { display: flex; flex-direction: column; min-width: 0; background: #fff; }
+.reading-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.toolbar-left, .toolbar-right { display: flex; gap: 2px; }
+
+.reading-content { overflow-y: auto; padding: 26px 38px 40px; }
+.reading-title-row { display: flex; align-items: flex-start; gap: 12px; }
+.reading-title { font-size: 1.28rem; font-weight: 600; line-height: 1.4; flex: 1; }
+.star-btn { font-size: 1.2rem; color: #cfd4dc; padding: 2px; }
+.star-btn.starred { color: #f5a623; }
+
+.mail-meta { display: flex; gap: 11px; align-items: center; margin-top: 18px; }
+.mail-meta .avatar { border-radius: 50%; width: 38px; height: 38px; }
+.meta-from { font-weight: 600; font-size: 0.93rem; }
+.meta-addr { color: var(--text-2); font-weight: 400; font-size: 0.85rem; margin-left: 6px; }
+.meta-unsub { color: var(--text-3); font-size: 0.8rem; margin-left: 8px; cursor: pointer; }
+.meta-to { color: var(--text-2); font-size: 0.84rem; margin-top: 1px; }
+.meta-date { margin-left: auto; color: var(--text-2); font-size: 0.85rem; flex: none; }
+
+.mail-actions-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.chip-btn {
+  border: 1px solid var(--border); background: #fff; border-radius: 8px;
+  padding: 5px 12px; font-size: 0.83rem; color: var(--text);
+}
+.chip-btn:hover { background: var(--hover); }
+.chip-btn.primary { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
+
+.mail-body {
+  margin-top: 20px; background: #fafbfc; border-radius: 12px;
+  padding: 30px 34px; line-height: 1.75; font-size: 0.96rem; color: #2b303b;
+}
+.mail-body p { margin-bottom: 14px; }
+.mail-body p:last-child { margin-bottom: 0; }
+.mail-body .sign { color: var(--text-2); }
+
+.reading-actions { display: flex; gap: 10px; margin-top: 22px; }
+.btn-primary {
+  background: var(--accent); color: #fff; border-radius: 9px; padding: 8px 20px; font-weight: 600;
+}
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-secondary {
+  background: #fff; border: 1px solid var(--border); border-radius: 9px; padding: 8px 16px;
+}
+.btn-secondary:hover { background: var(--hover); }
+
+.reading-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-3); gap: 10px; }
+.reading-empty-icon { font-size: 2.4rem; }
+
+/* ---------- 弹窗 ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(23, 32, 52, 0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+  backdrop-filter: blur(2px);
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  background: #fff; border-radius: 14px; width: min(620px, calc(100vw - 40px));
+  box-shadow: var(--shadow); padding: 6px 0 0; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modal-small { width: min(440px, calc(100vw - 40px)); padding-bottom: 18px; }
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 18px; font-weight: 600; border-bottom: 1px solid var(--border);
+}
+.field { display: flex; align-items: center; gap: 10px; padding: 9px 18px; border-bottom: 1px solid #f0f2f5; }
+.field span { color: var(--text-2); font-size: 0.88rem; width: 52px; flex: none; }
+.field input { flex: 1; border: none; outline: none; min-width: 0; }
+.compose-body { border: none; outline: none; resize: vertical; min-height: 210px; padding: 14px 18px; line-height: 1.65; }
+.modal-footer { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--border); }
+.modal-hint { color: var(--text-3); font-size: 0.8rem; flex: 1; }
+
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 18px 0; font-size: 0.92rem; }
+.setting-row select { border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; background: #fff; }
+.setting-note { padding: 14px 18px 0; color: var(--text-2); font-size: 0.84rem; line-height: 1.6; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%);
+  background: rgba(24, 28, 38, 0.92); color: #fff; padding: 9px 18px; border-radius: 10px;
+  font-size: 0.88rem; z-index: 99; box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+}
+.toast[hidden] { display: none; }
+
+/* ---------- 响应式：窄屏时阅读区覆盖列表 ---------- */
+@media (max-width: 980px) {
+  body { padding: 0; }
+  .app-window { height: 100vh; border-radius: 0; grid-template-columns: 200px 1fr; }
+  .reading-pane { display: none; }
+  .app-window.reading-open { grid-template-columns: 200px 1fr; }
+  .app-window.reading-open .list-pane { display: none; }
+  .app-window.reading-open .reading-pane { display: flex; }
+}
+@media (max-width: 640px) {
+  .app-window { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .app-window.reading-open .sidebar { display: none; }
+  .reading-content { padding: 20px 18px 32px; }
+  .mail-body { padding: 22px 18px; }
+}
