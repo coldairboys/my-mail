@@ -158,6 +158,12 @@
     if (labelIds.includes("CATEGORY_UPDATES") || labelIds.includes("CATEGORY_FORUMS")) return "updates";
     return null;
   }
+  function htmlPart(msg) {
+    const parts = [];
+    collectParts(msg.payload, parts, []);
+    const hp = parts.find((p) => p.mime === "text/html");
+    return hp ? hp.text : null;
+  }
   function bodyParagraphs(msg) {
     const parts = [];
     collectParts(msg.payload, parts, []);
@@ -203,6 +209,7 @@
       unread: labelIds.includes("UNREAD"),
       starred: labelIds.includes("STARRED"),
       body: bodyParagraphs(msg),
+      bodyHtml: htmlPart(msg),
       bodyZh: null,
       attachments: (() => { const atts = []; collectParts(msg.payload, [], atts); return atts; })(),
       unsub: (() => { const v = header(h, "List-Unsubscribe"); const mm = /<(https?:[^>]+)>/.exec(v || ""); const mo = /<(mailto:[^>]+)>/.exec(v || ""); return mm ? mm[1] : mo ? mo[1] : null; })(),

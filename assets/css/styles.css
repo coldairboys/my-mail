@@ -464,3 +464,10 @@ body.density-compact .mail-snippet { display: none; }
 .stats-name { font-weight: 600; white-space: nowrap; }
 .stats-meta { color: var(--text-3); font-size: 0.78rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stats-count { color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+/* ---------- v3.6：HTML 邮件渲染 ---------- */
+.mail-html-slot { margin-top: 20px; }
+.mail-html-frame {
+  width: 100%; border: 1px solid var(--border); border-radius: 12px;
+  background: #ffffff; min-height: 240px; display: block;
+}

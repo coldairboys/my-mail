@@ -252,9 +252,9 @@
         <button class="chip-btn primary" id="btnTranslate">${showTranslated ? "↩ 看原文" : "🌐 翻译成" + (state.lang === "zh" ? "中文" : "英文")}</button>
         <button class="chip-btn" id="btnReply">回复</button>
         <button class="chip-btn" id="btnForward">转发</button>
-        <button class="chip-btn" id="btnShowImages">显示图片</button>
+        <button class="chip-btn" id="btnShowImages">${m.showImages ? "隐藏图片" : "显示图片"}</button>
       </div>
-      <div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>
+      ${m.bodyHtml ? '<div class="mail-html-slot" id="htmlSlot"></div>' : `<div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`}
       ${m.attachments && m.attachments.length ? `<div class="attach-block"><div class="attach-title">${ICONS.clip}<span>附件（${m.attachments.length}）</span></div><div class="attach-row">${m.attachments.map((at, i) => `<button class="attach-chip" data-att="${i}"><span class="attach-name">${esc(at.filename || "附件")}</span><span class="attach-size">${fmtSize(at.size)}</span></button>`).join("")}</div></div>` : ""}
       <div class="reading-actions">
         <button class="btn-primary" id="btnReply2">回复</button>
@@ -299,7 +299,37 @@
       else if (mode === "live") toast("这封邮件没有提供退订链接");
       else toast("已退订（演示，不会真的发送）");
     };
-    $("#btnShowImages").onclick = () => toast("已显示此发件人的图片（演示）");
+    $("#btnShowImages").onclick = () => {
+      if (!m.bodyHtml) { toast("这封是纯文本邮件，没有图片可切换"); return; }
+      m.showImages = !m.showImages;
+      renderReading();
+      toast(m.showImages ? "已显示图片" : "已隐藏图片（默认隐藏可防邮件追踪）");
+    };
+    const slot = $("#htmlSlot");
+    if (slot && m.bodyHtml) {
+      const ifr = document.createElement("iframe");
+      ifr.className = "mail-html-frame";
+      ifr.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
+      ifr.setAttribute("title", "邮件内容");
+      let html = m.bodyHtml;
+      if (!m.showImages) {
+        html = html.replace(/<img([^>]*?)\ssrc\s*=/gi, "<img$1 data-blocked-src=")
+                   .replace(/\ssrcset\s*=/gi, " data-blocked-srcset=")
+                   .replace(/background\s*:\s*url\([^)]*\)/gi, "background:none");
+      }
+      const style = '<style>html,body{margin:0;padding:14px;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.65;color:#202124;background:#ffffff}img{max-width:100%!important;height:auto!important}table{max-width:100%!important}td,th{word-break:break-word}a{color:#1a73e8}</style><base target="_blank" rel="noopener">';
+      if (/<head[^>]*>/i.test(html)) html = html.replace(/<head[^>]*>/i, (x) => x + style);
+      else if (/<html[^>]*>/i.test(html)) html = html.replace(/<html[^>]*>/i, (x) => x + "<head>" + style + "</head>");
+      else html = style + html;
+      ifr.addEventListener("load", () => {
+        try {
+          const h = ifr.contentDocument && ifr.contentDocument.documentElement ? ifr.contentDocument.documentElement.scrollHeight : 0;
+          if (h) ifr.style.height = Math.min(h + 4, 4000) + "px";
+        } catch (e) {}
+      });
+      ifr.srcdoc = html;
+      slot.appendChild(ifr);
+    }
     updatePager();
   }
 
@@ -311,8 +341,8 @@
     showTranslated = false;
     const m = byId(id);
     if (m && m.provider === "outlook" && !m.bodyLoaded) {
-      window.MyMailOutlook.fetchFull(m.id).then(({ body, attachments }) => {
-        m.body = body; m.attachments = attachments; m.bodyLoaded = true;
+      window.MyMailOutlook.fetchFull(m.id).then(({ body, bodyHtml, attachments }) => {
+        m.body = body; m.bodyHtml = bodyHtml; m.attachments = attachments; m.bodyLoaded = true;
         if (selectedId === m.id) renderReading();
       }).catch(() => { m.bodyLoaded = true; });
     }

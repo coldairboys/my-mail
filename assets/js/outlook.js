@@ -153,8 +153,10 @@
   async function fetchFull(id) {
     const msg = await api(`messages/${id}?$select=body`);
     let body = ["(无正文)"];
+    let bodyHtml = null;
     if (msg.body && msg.body.content) {
       if (msg.body.contentType === "html") {
+        bodyHtml = msg.body.content;
         const div = document.createElement("div");
         div.innerHTML = msg.body.content;
         body = (div.textContent || "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
@@ -166,7 +168,7 @@
       const data = await api(`messages/${id}/attachments?$select=id,name,contentType,size`);
       attachments = (data.value || []).map((a) => ({ filename: a.name, mimeType: a.contentType, size: a.size || 0, attachmentId: a.id }));
     } catch (e) {}
-    return { body: body.length ? body : ["(无正文)"], attachments };
+    return { body: body.length ? body : ["(无正文)"], bodyHtml, attachments };
   }
   async function send({ to, subject, body }) {
     await api("sendMail", {
