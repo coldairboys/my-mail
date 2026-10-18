@@ -3,8 +3,9 @@
 一个清爽的三栏邮件管理网页版：左边文件夹与标签，中间邮件列表，右边阅读区。
 没有日历、没有会议、没有广告，只做邮件本身。
 
-> 当前版本是**前端演示版**：内置虚构的示例邮件，数据保存在浏览器 localStorage，
-> 不连接任何真实邮箱。接入 Gmail / Outlook 的计划见下方 [Roadmap](#roadmap)。
+> 当前版本是**前端版**：内置虚构的示例邮件（演示模式），同时已支持用 Google
+> OAuth 登录真实 Gmail（只读 + 发送）。真实邮件只在浏览器内存里，不落盘、不进仓库。
+> 接入方法见下方 [接入 Gmail](#接入-gmail真实邮箱只读--发送)。
 
 ## 在线预览
 
@@ -27,6 +28,7 @@ GitHub Pages：**https://coldairboys.github.io/my-mail/**
 - ⌨️ **键盘** — `j` / `k` 上下切换邮件，`Esc` 关闭弹窗/返回
 - 💾 **本地持久化** — 已读、星标、草稿、主题等状态存在 localStorage，刷新不丢失；设置里可恢复演示数据
 - 🧪 **演示数据** — 内置邮件均为本项目原创虚构（含中英对照译文），不取材于任何真实邮件
+- 🔐 **Gmail 登录** — 登录页用 Google OAuth（只读 + 发送权限）直连 Gmail API：真实收件箱、发送真实邮件；令牌只存会话级 sessionStorage，关标签页失效
 
 ## 本地运行
 
@@ -50,22 +52,46 @@ my-mail/
 │   ├── css/
 │   │   └── styles.css          # 全部样式（留白、浅灰分隔、蓝色选中态）
 │   └── js/
+│       ├── config.js           # 配置：Google Client ID（公开标识，非密钥）与权限范围
+│       ├── gmail.js            # Gmail 接入层：OAuth 令牌、拉取/解析邮件、发送、翻译
 │       ├── data.js             # 演示数据：文件夹、标签、示例邮件（含中英对照译文）
 │       └── app.js              # 应用逻辑：筛选、渲染、翻译切换、写邮件、localStorage 持久化
 ├── LICENSE                     # MIT
 └── README.md
 ```
 
+## 接入 Gmail（真实邮箱，只读 + 发送）
+
+1. 打开 [Google Cloud 控制台](https://console.cloud.google.com/)，新建一个项目（名字随意，如 `my-mail`）
+2. 「API 和服务 → 库」里搜索 **Gmail API** 并启用
+3. 「API 和服务 → OAuth 权限请求页面」：选择 External，填应用名和你的邮箱；
+   在「测试用户」里把你自己的 Gmail 加进去（测试模式足够自用）
+4. 「API 和服务 → 凭据 → 创建凭据 → OAuth 客户端 ID」：类型选 **Web 应用**，
+   在「已获授权的 JavaScript 来源」里加上 `https://coldairboys.github.io`
+   （本地调试再加 `http://localhost:8000`）
+5. 把生成的 **Client ID** 填进 `assets/js/config.js` 的 `GOOGLE_CLIENT_ID`，推送即可
+6. 打开 Pages 站点 → 登录页点「使用 Google 登录」→ 在 Google 官方页面授权
+   （测试模式会提示「未经验证的应用」，点 高级 → 继续，这是自用项目的正常提示）
+
+### 安全说明
+
+- 密码只在 Google 官方页面输入，本应用没有任何密码框，也拿不到密码
+- 仓库里只有 Client ID（公开标识，不是密钥）；**不要把 client_secret 提交进仓库**
+- access token 只存浏览器 `sessionStorage`，关标签页即失效，有效期约 1 小时
+- 真实邮件只在内存中处理，不写 localStorage、不上传任何服务器
+  （GitHub Pages 是纯静态托管，收不到任何数据）
+- 权限只有 `gmail.readonly` + `gmail.send`：不能改、不能删服务器上的邮件；
+  界面里的删除/归档在真实模式下只在本页会话内生效。需要服务器级管理时，
+  把 `config.js` 的权限加上 `gmail.modify` 即可（风险也相应变大，自行权衡）
+- 随时可在 Google 账号 → 安全性 → 第三方访问 中撤销本应用授权
+
 ## Roadmap
 
-演示版验收通过后，按这个顺序接真实邮箱：
-
-1. **Gmail 只读接入** — Google OAuth 登录 + Gmail API 拉取收件箱（先只读，不碰发送）
-2. **发送 / 回复** — 走 Gmail API 发送，发送前加确认步骤
-3. **Outlook 接入** — Microsoft OAuth + Graph API，与 Gmail 共用同一套界面
-4. **通用 IMAP/SMTP** — 支持任意邮箱服务商（QQ 邮箱、163、iCloud 等用应用专用密码）
-5. **服务端翻译** — 接 DeepL / 大模型 API 做真实全文翻译，替换演示译文
-6. **打包桌面版** — 用同一套前端代码套 Tauri，打包成 Windows / macOS 桌面应用
+1. ✅ **Gmail 只读 + 发送** — OAuth 登录、真实收件箱、真实发送（见上）
+2. **Outlook 接入** — Microsoft OAuth + Graph API，与 Gmail 共用同一套界面
+3. **通用 IMAP/SMTP** — 支持任意邮箱服务商（QQ 邮箱、163、iCloud 等用应用专用密码）
+4. **服务端翻译** — 接 DeepL / 大模型 API 做服务端全文翻译
+5. **打包桌面版** — 用同一套前端代码套 Tauri，打包成 Windows / macOS 桌面应用
 
 ## 技术说明
 

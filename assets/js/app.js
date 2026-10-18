@@ -54,6 +54,11 @@
     return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true };
   }
   const state = loadState();
+  let mode = "demo";            // demo = 演示数据 | live = 真实 Gmail（内存，不落盘）
+  let liveEmails = [];
+  let gmailProfile = null;
+  let liveNoticeShown = false;
+  const src = () => (mode === "live" ? liveEmails : state.emails);
   let currentFolder = "inbox";
   let currentLabel = null;
   let selectedId = null;
@@ -63,7 +68,7 @@
 
   const save = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {} };
   const labelById = (id) => LABELS.find((l) => l.id === id);
-  const byId = (id) => state.emails.find((m) => m.id === id);
+  const byId = (id) => src().find((m) => m.id === id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const initialOf = (name) => (name || "?").trim().charAt(0).toUpperCase();
   const AVATAR_COLORS = ["#e8736a", "#f5a623", "#5aa2ff", "#7ed3a6", "#9b7ede", "#e87fb0", "#4db6c9"];
@@ -110,10 +115,10 @@
   /* ---------------- 筛选与排序 ---------------- */
   function visibleEmails() {
     let list;
-    if (currentLabel) list = state.emails.filter((m) => m.label === currentLabel && m.folder !== "trash" && m.folder !== "spam");
-    else if (currentFolder === "starred") list = state.emails.filter((m) => m.starred && m.folder !== "trash");
-    else if (currentFolder === "all") list = state.emails.filter((m) => m.folder !== "trash" && m.folder !== "spam");
-    else list = state.emails.filter((m) => m.folder === currentFolder && !m.archived);
+    if (currentLabel) list = src().filter((m) => m.label === currentLabel && m.folder !== "trash" && m.folder !== "spam");
+    else if (currentFolder === "starred") list = src().filter((m) => m.starred && m.folder !== "trash");
+    else if (currentFolder === "all") list = src().filter((m) => m.folder !== "trash" && m.folder !== "spam");
+    else list = src().filter((m) => m.folder === currentFolder && !m.archived);
 
     if (filterMode === "unread") list = list.filter((m) => m.unread);
     if (filterMode === "read") list = list.filter((m) => !m.unread);
@@ -125,10 +130,10 @@
     return list.slice().sort((a, b) => (state.sortDesc ? (b.ts || 0) - (a.ts || 0) : (a.ts || 0) - (b.ts || 0)));
   }
   function folderCount(fid) {
-    if (fid === "starred") return state.emails.filter((m) => m.starred && m.folder !== "trash").length;
-    if (fid === "all") return state.emails.filter((m) => m.folder !== "trash" && m.folder !== "spam").length;
-    if (fid === "inbox") return state.emails.filter((m) => m.folder === "inbox" && !m.archived && m.unread).length;
-    return state.emails.filter((m) => m.folder === fid && !m.archived).length;
+    if (fid === "starred") return src().filter((m) => m.starred && m.folder !== "trash").length;
+    if (fid === "all") return src().filter((m) => m.folder !== "trash" && m.folder !== "spam").length;
+    if (fid === "inbox") return src().filter((m) => m.folder === "inbox" && !m.archived && m.unread).length;
+    return src().filter((m) => m.folder === fid && !m.archived).length;
   }
 
   /* ---------------- 渲染 ---------------- */
@@ -140,7 +145,7 @@
         ${n ? `<span class="nav-count">${n}</span>` : ""}</li>`;
     }).join("");
     $("#labelList").innerHTML = LABELS.map((l) => {
-      const n = state.emails.filter((m) => m.label === l.id && m.folder !== "trash" && m.folder !== "spam").length;
+      const n = src().filter((m) => m.label === l.id && m.folder !== "trash" && m.folder !== "spam").length;
       return `<li class="${currentLabel === l.id ? "active" : ""}" data-label="${l.id}">
         <span class="label-dot" style="background:${l.color}"></span><span>${esc(l.name)}</span>
         ${n ? `<span class="nav-count">${n}</span>` : ""}</li>`;
@@ -220,8 +225,15 @@
         <button class="btn-secondary" id="btnForward2">转发</button>
       </div>`;
     $("#btnStar").onclick = () => { m.starred = !m.starred; save(); renderAll(); };
-    $("#btnTranslate").onclick = () => {
-      if (!m.bodyZh) { toast("这封邮件暂无译文"); return; }
+    $("#btnTranslate").onclick = async () => {
+      if (!m.bodyZh) {
+        if (mode !== "live") { toast("这封邮件暂无译文"); return; }
+        const btn = $("#btnTranslate");
+        btn.textContent = "翻译中…"; btn.disabled = true;
+        try {
+          m.bodyZh = await window.MyMailGmail.translateParagraphs(m.body, state.lang);
+        } catch (e) { toast("翻译失败：" + e.message); renderReading(); return; }
+      }
       showTranslated = !showTranslated; renderReading();
     };
     const openReply = () => openCompose({ to: m.address, subject: "Re: " + m.subject });
@@ -256,10 +268,12 @@
   $("#btnBack").onclick = () => document.querySelector(".app").classList.remove("reading-open");
 
   function trashMail(m, silent) {
-    const snapshot = { folder: m.folder, archived: m.archived, index: state.emails.indexOf(m) };
+    const arr = src();
+    const snapshot = { folder: m.folder, archived: m.archived, index: arr.indexOf(m), removed: false };
     if (m.folder === "trash") {
-      state.emails = state.emails.filter((x) => x.id !== m.id);
-      if (!silent) toast("已彻底删除", { label: "撤销", fn: () => { state.emails.splice(snapshot.index, 0, m); m.folder = "trash"; save(); renderAll(); } });
+      arr.splice(snapshot.index, 1);
+      snapshot.removed = true;
+      if (!silent) toast("已彻底删除", { label: "撤销", fn: () => { arr.splice(snapshot.index, 0, m); m.folder = "trash"; save(); renderAll(); } });
     } else {
       m.folder = "trash"; m.archived = false;
       if (!silent) toast("已移到废纸篓", { label: "撤销", fn: () => { m.folder = snapshot.folder; m.archived = snapshot.archived; save(); renderAll(); } });
@@ -271,6 +285,10 @@
   function actOnSelected(action) {
     const m = byId(selectedId);
     if (!m) { toast("先选一封邮件"); return; }
+    if (mode === "live" && !liveNoticeShown) {
+      liveNoticeShown = true;
+      toast("真实模式下，管理动作只在本页内有效（只读+发送权限不能改 Gmail 服务器）");
+    }
     if (action === "archive") { m.archived = true; selectedId = null; toast("已归档，在「所有邮件」里能找到"); }
     if (action === "snooze") { m.folder = "snoozed"; m.archived = false; selectedId = null; toast("已延后到明天"); }
     if (action === "spam") { m.folder = "spam"; m.archived = false; selectedId = null; toast("已标为垃圾邮件"); }
@@ -400,12 +418,14 @@
   };
   $("#menuEmptyFolder").onclick = () => {
     const fid = currentFolder;
-    state.emails = state.emails.filter((m) => m.folder !== fid);
+    const arr = src();
+    arr.splice(0, arr.length, ...arr.filter((m) => m.folder !== fid));
     selectedId = null; save();
     $("#moreMenu").hidden = true; renderAll();
     toast(fid === "trash" ? "废纸篓已清空" : "垃圾邮件已清空");
   };
   function resetData() {
+    if (mode === "live") { enterLive(); toast("已重新从 Gmail 拉取"); return; }
     localStorage.removeItem(STORAGE_KEY);
     state.emails = structuredClone(SEED_EMAILS);
     selectedId = null; currentFolder = "inbox"; currentLabel = null; filterMode = "all";
@@ -424,7 +444,7 @@
   }
   function closeCompose() { $("#composeModal").hidden = true; }
   function pushMail(partial) {
-    state.emails.unshift(Object.assign({
+    src().unshift(Object.assign({
       id: "u" + Date.now(), ts: Date.now(), from: "我", address: "demo@mymail.app", to: "",
       date: "今天", time: "刚刚", subject: "（无主题）", snippet: "",
       label: null, unread: false, starred: false, folder: "sent", body: [], bodyZh: null,
@@ -440,8 +460,21 @@
   $("#btnComposeFab").onclick = () => openCompose();
   $("#btnCloseCompose").onclick = () => { if (composeSnapshot("drafts")) { save(); toast("已存入草稿"); renderAll(); } closeCompose(); };
   $("#btnSaveDraft").onclick = () => { if (composeSnapshot("drafts")) { save(); closeCompose(); renderAll(); toast("已存入草稿"); } else $("#composeHint").textContent = "还没写内容"; };
-  $("#btnSend").onclick = () => {
-    if (!$("#composeTo").value.trim()) { $("#composeHint").textContent = "先填收件人"; return; }
+  $("#btnSend").onclick = async () => {
+    const to = $("#composeTo").value.trim();
+    if (!to) { $("#composeHint").textContent = "先填收件人"; return; }
+    const subject = $("#composeSubject").value.trim(), bodyText = $("#composeBody").value;
+    if (mode === "live") {
+      const btn = $("#btnSend");
+      btn.disabled = true; btn.textContent = "发送中…";
+      try {
+        await window.MyMailGmail.send({ to, subject, body: bodyText });
+        pushMail({ to, subject: subject || "（无主题）", snippet: bodyText.trim().slice(0, 60), body: bodyText.split(/\n{2,}/).filter(Boolean), folder: "sent" });
+        closeCompose(); renderAll(); toast("已通过 Gmail 发送");
+      } catch (e) { $("#composeHint").textContent = "发送失败：" + e.message; }
+      btn.disabled = false; btn.textContent = "发送";
+      return;
+    }
     composeSnapshot("sent"); save(); closeCompose(); renderAll(); toast("已发送（演示，不会真的发出）");
   };
 
@@ -466,6 +499,65 @@
     if (e.key === "k") stepSelection(-1);
   });
 
+  /* ---------------- Gmail 登录 ---------------- */
+  const G = () => window.MyMailGmail;
+  function setAccountUI(name, mail, initial) {
+    $("#accountName").textContent = name;
+    $("#accountMail").textContent = mail;
+    $("#accountAvatar").textContent = initial;
+    $("#btnAuthText").textContent = mode === "live" ? "退出登录" : "登录 Gmail";
+  }
+  function showLogin(errorMsg) {
+    $("#loginError").hidden = !errorMsg;
+    if (errorMsg) $("#loginError").textContent = errorMsg;
+    $("#loginConfigNote").hidden = G().configured();
+    $("#loginScreen").hidden = false;
+  }
+  function hideLogin() { $("#loginScreen").hidden = true; }
+  async function enterLive() {
+    toast("正在拉取你的 Gmail…");
+    const { profile, emails } = await G().loadAll();
+    gmailProfile = profile;
+    liveEmails = emails;
+    mode = "live";
+    selectedId = null; currentFolder = "inbox"; currentLabel = null;
+    const addr = profile.emailAddress || "";
+    setAccountUI(addr.split("@")[0] || "Gmail", addr, initialOf(addr || "G"));
+    document.querySelector(".sidebar-footer").innerHTML =
+      '<span class="sync-dot"></span> 已同步 · Gmail 实时数据（不落盘）';
+    hideLogin(); renderAll();
+    const firstLive = visibleEmails()[0];
+    if (firstLive) select(firstLive.id, false);
+    toast("已登录 Gmail：" + addr);
+  }
+  async function doGoogleLogin() {
+    const btn = $("#btnGoogleLogin");
+    btn.disabled = true; btn.textContent = "正在打开 Google 授权…";
+    try {
+      await G().signIn();
+      await enterLive();
+    } catch (e) {
+      showLogin("登录失败：" + e.message);
+    }
+    btn.disabled = false; btn.textContent = "使用 Google 登录";
+  }
+  $("#btnGoogleLogin").onclick = doGoogleLogin;
+  $("#btnDemoEnter").onclick = () => { hideLogin(); toast("演示模式：数据为虚构示例"); };
+  $("#btnAuth").onclick = async () => {
+    closeSidebar();
+    if (mode === "live") {
+      G().clearToken();
+      mode = "demo"; liveEmails = []; gmailProfile = null; selectedId = null;
+      setAccountUI("Yangming", "demo@mymail.app", "Y");
+      document.querySelector(".sidebar-footer").innerHTML =
+        '<span class="sync-dot"></span> 已同步 · 演示数据';
+      renderAll();
+      const f = visibleEmails()[0];
+      if (f) select(f.id, false);
+      toast("已退出登录，回到演示模式");
+    } else showLogin();
+  };
+
   /* ---------------- 启动 ---------------- */
   hydrateIcons();
   applyTheme();
@@ -473,4 +565,8 @@
   renderAll();
   const first = visibleEmails()[0];
   if (first) select(first.id, false);
+  if (G().configured()) {
+    if (G().getStoredToken()) enterLive().catch(() => showLogin("会话已过期，请重新登录"));
+    else showLogin();
+  }
 })();

@@ -326,3 +326,39 @@ ul { list-style: none; }
   .mail-body { padding: 22px 18px; }
   .page-pos { display: none; }
 }
+
+/* ---------- 登录页 ---------- */
+.login-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.login-screen[hidden] { display: none; }
+.login-card { width: min(400px, 100%); text-align: center; }
+.login-logo {
+  width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 18px;
+  background: var(--accent); color: #fff; font-size: 1.9rem;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 10px 30px rgba(30, 90, 200, 0.35);
+}
+.login-title { font-size: 1.7rem; font-weight: 700; }
+.login-desc { color: var(--text-2); line-height: 1.7; margin: 12px 0 26px; font-size: 0.94rem; }
+.btn-google {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: #fff; color: #3c4043; border: 1px solid #dadce0; border-radius: 10px;
+  padding: 11px 22px; font-weight: 600; font-size: 0.98rem;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+}
+.btn-google:hover { background: #f8fafc; }
+[data-theme="dark"] .btn-google { background: #fff; }
+.btn-google:disabled { opacity: 0.6; cursor: wait; }
+.login-error { color: var(--danger); margin-top: 14px; font-size: 0.88rem; line-height: 1.6; }
+.login-error[hidden] { display: none; }
+.login-note {
+  margin-top: 16px; text-align: left; font-size: 0.84rem; line-height: 1.65; color: var(--text-2);
+  background: var(--accent-soft); border-radius: 10px; padding: 10px 14px;
+}
+.login-note[hidden] { display: none; }
+.login-note code { font-size: 0.8rem; }
+.login-demo { display: block; margin: 22px auto 0; color: var(--accent); font-weight: 600; font-size: 0.94rem; padding: 6px; }
+.login-scope { color: var(--text-3); font-size: 0.78rem; line-height: 1.7; margin-top: 16px; }
