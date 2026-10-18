@@ -362,3 +362,22 @@ ul { list-style: none; }
 .login-note code { font-size: 0.8rem; }
 .login-demo { display: block; margin: 22px auto 0; color: var(--accent); font-weight: 600; font-size: 0.94rem; padding: 6px; }
 .login-scope { color: var(--text-3); font-size: 0.78rem; line-height: 1.7; margin-top: 16px; }
+
+/* ---------- v3.3 修复：滚动 / 溢出 / 流畅度 ---------- */
+/* 列表滚不到底的根因：flex 子项默认 min-height:auto 不肯收缩，
+   列表被内容撑出屏幕且自身无法滚动 → 全链路补 min-height:0 */
+.list-pane { min-height: 0; }
+.mail-list {
+  min-height: 0; min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.reading { min-height: 0; min-width: 0; }
+.read-scroll { min-height: 0; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.read-card { min-width: 0; max-width: 100%; }
+/* 长链接/无空格长串（如验证链接）强制断行，不再撑出正文框 */
+.read-body p { overflow-wrap: anywhere; word-break: break-word; }
+.read-subject { overflow-wrap: anywhere; }
+.mail-snippet, .mail-subject { min-width: 0; }
+/* 真实模式隐藏演示专用标签区 */
+body.live-mode .labels-head, body.live-mode #labelNav { display: none; }

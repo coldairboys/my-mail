@@ -525,6 +525,8 @@
     setAccountUI(addr.split("@")[0] || "Gmail", addr, initialOf(addr || "G"));
     document.querySelector(".sidebar-footer").innerHTML =
       '<span class="sync-dot"></span> 已同步 · Gmail 实时数据（不落盘）';
+    document.body.classList.add("live-mode");
+    $("#settingsNote").textContent = "真实模式（Gmail）：邮件只在内存中显示、不落盘；令牌约 1 小时有效。只读+发送权限下，删除/归档仅在本页内生效。";
     hideLogin(); renderAll();
     const firstLive = visibleEmails()[0];
     if (firstLive) select(firstLive.id, false);
@@ -545,6 +547,8 @@
     if (mode === "live") {
       G().clearToken();
       mode = "demo"; liveEmails = []; gmailProfile = null; selectedId = null;
+      document.body.classList.remove("live-mode");
+      $("#settingsNote").textContent = "演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。";
       setAccountUI("Yangming", "demo@mymail.app", "Y");
       document.querySelector(".sidebar-footer").innerHTML =
         '<span class="sync-dot"></span> 已同步 · 演示数据';

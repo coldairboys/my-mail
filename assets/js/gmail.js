@@ -203,10 +203,16 @@
     const qs = new URLSearchParams(params).toString();
     const data = await api("messages?" + qs);
     const ids = (data.messages || []).map((m) => m.id);
+    // 并发拉取（6 路）：逐封顺序请求会让列表等很久
     const msgs = [];
-    for (const id of ids) {
-      try { msgs.push(await api("messages/" + id + "?format=full")); } catch (e) {}
+    let cursor = 0;
+    async function worker() {
+      while (cursor < ids.length) {
+        const id = ids[cursor++];
+        try { msgs.push(await api("messages/" + id + "?format=full")); } catch (e) {}
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(6, ids.length) }, worker));
     return msgs;
   }
 
