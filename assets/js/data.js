@@ -14,10 +14,14 @@ const LABELS = [
 const FOLDERS = [
   { id: "inbox",   name: "收件箱",   icon: "inbox" },
   { id: "starred", name: "已加星标", icon: "star" },
+  { id: "important", name: "重要邮件", icon: "flag" },
   { id: "snoozed", name: "已延后",   icon: "clock" },
   { id: "drafts",  name: "草稿",     icon: "edit" },
   { id: "sent",    name: "已发送",   icon: "send" },
   { id: "all",     name: "所有邮件", icon: "mail" },
+  { id: "cat-promo", name: "推广",   icon: "tag" },
+  { id: "cat-social", name: "社交",  icon: "users" },
+  { id: "cat-updates", name: "动态", icon: "bell" },
   { id: "spam",    name: "垃圾邮件", icon: "spam" },
   { id: "trash",   name: "废纸篓",   icon: "trash" },
 ];
@@ -27,7 +31,7 @@ const SEED_EMAILS = [
   {
     id: "m01", ts: 202610181930, from: "陈默", address: "chenmo@brightlab.example",
     to: "我", date: "10月18日", time: "10月18日 19:30",
-    subject: "明早十点过一遍发布清单",
+    subject: "明早十点过一遍发布清单", important: true,
     snippet: "我把清单整理成了一页纸，明早十点对一下，没问题就…",
     label: "work", folder: "inbox", unread: true, starred: false,
     body: [
@@ -118,7 +122,7 @@ const SEED_EMAILS = [
   {
     id: "m06", ts: 202610172110, from: "Blue Sky Airlines", address: "eticket@bluesky.example",
     to: "我", date: "10月17日", time: "10月17日 21:10",
-    subject: "Your e-ticket: Flight BS 2047 confirmed",
+    subject: "Your e-ticket: Flight BS 2047 confirmed", important: true,
     snippet: "Booking ref KX8P2Q — check-in opens 24 hours before…",
     label: "bills", folder: "inbox", unread: false, starred: true,
     body: [

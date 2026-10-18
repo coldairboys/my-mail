@@ -144,14 +144,23 @@
       return new TextDecoder("utf-8").decode(bytes);
     } catch (e) { return ""; }
   }
-  function collectParts(payload, out) {
+  function collectParts(payload, texts, atts) {
     if (!payload) return;
-    if (payload.body && payload.body.data) out.push({ mime: payload.mimeType, text: b64ToText(payload.body.data) });
-    (payload.parts || []).forEach((p) => collectParts(p, out));
+    if (payload.filename && payload.body) {
+      atts.push({ filename: payload.filename, mimeType: payload.mimeType || "", size: payload.body.size || 0, attachmentId: payload.body.attachmentId || null });
+    }
+    if (payload.body && payload.body.data) texts.push({ mime: payload.mimeType, text: b64ToText(payload.body.data) });
+    (payload.parts || []).forEach((p) => collectParts(p, texts, atts));
+  }
+  function gmailCategory(labelIds) {
+    if (labelIds.includes("CATEGORY_PROMOTIONS")) return "promo";
+    if (labelIds.includes("CATEGORY_SOCIAL")) return "social";
+    if (labelIds.includes("CATEGORY_UPDATES") || labelIds.includes("CATEGORY_FORUMS")) return "updates";
+    return null;
   }
   function bodyParagraphs(msg) {
     const parts = [];
-    collectParts(msg.payload, parts);
+    collectParts(msg.payload, parts, []);
     let text = "";
     const plain = parts.find((p) => p.mime === "text/plain");
     if (plain) text = plain.text;
@@ -195,6 +204,10 @@
       starred: labelIds.includes("STARRED"),
       body: bodyParagraphs(msg),
       bodyZh: null,
+      attachments: (() => { const atts = []; collectParts(msg.payload, [], atts); return atts; })(),
+      gmailLabelIds: labelIds,
+      important: labelIds.includes("IMPORTANT"),
+      category: gmailCategory(labelIds),
       gmailThreadId: msg.threadId,
     };
   }
@@ -268,5 +281,14 @@
     return out;
   }
 
-  window.MyMailGmail = { configured, signIn, startRedirectLogin, consumeRedirectToken, consumeRedirectError, getStoredToken, clearToken, loadAll, send, translateParagraphs };
+  async function searchAll(q) {
+    const msgs = await fetchList({ q, maxResults: "30" });
+    return msgs.map((raw) => toEmail(raw));
+  }
+  async function downloadAttachment(messageId, attachmentId) {
+    const r = await api("messages/" + messageId + "/attachments/" + attachmentId);
+    return r.data || "";
+  }
+
+  window.MyMailGmail = { configured, signIn, startRedirectLogin, consumeRedirectToken, consumeRedirectError, getStoredToken, clearToken, loadAll, send, translateParagraphs, searchAll, downloadAttachment };
 })();

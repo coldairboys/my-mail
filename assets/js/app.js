@@ -16,6 +16,11 @@
   const ICONS = {
     inbox: P('<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'),
     star: P('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'),
+    flag: P('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>'),
+    tag: P('<path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.2"/>'),
+    users: P('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    bell: P('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'),
+    clip: P('<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),
     clock: P('<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 13.5"/>'),
     edit: P('<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'),
     send: P('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
@@ -48,10 +53,10 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        if (Array.isArray(s.emails)) return Object.assign({ lang: "zh", themeMode: "auto", sortDesc: true }, s);
+        if (Array.isArray(s.emails)) return Object.assign({ lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable" }, s);
       }
     } catch (e) { /* 存档损坏就重置 */ }
-    return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true };
+    return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable" };
   }
   const state = loadState();
   let mode = "demo";            // demo = 演示数据 | live = 真实 Gmail（内存，不落盘）
@@ -113,9 +118,17 @@
   };
 
   /* ---------------- 筛选与排序 ---------------- */
+  const CAT_OF_LABEL = { newsletter: "promo", bills: "updates", life: "social" };
+  const CAT_NAMES = { promo: "推广", social: "社交", updates: "动态" };
+  const catOf = (m) => m.category || CAT_OF_LABEL[m.label] || null;
+  const importantOf = (m) => Boolean(m.important);
+  const fmtSize = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : n > 1024 ? Math.round(n / 1024) + " KB" : (n || 0) + " B");
+
   function visibleEmails() {
     let list;
     if (currentLabel) list = src().filter((m) => m.label === currentLabel && m.folder !== "trash" && m.folder !== "spam");
+    else if (currentFolder === "important") list = src().filter((m) => importantOf(m) && m.folder !== "trash" && m.folder !== "spam");
+    else if (currentFolder.startsWith("cat-")) list = src().filter((m) => catOf(m) === currentFolder.slice(4) && m.folder === "inbox" && !m.archived);
     else if (currentFolder === "starred") list = src().filter((m) => m.starred && m.folder !== "trash");
     else if (currentFolder === "all") list = src().filter((m) => m.folder !== "trash" && m.folder !== "spam");
     else list = src().filter((m) => m.folder === currentFolder && !m.archived);
@@ -130,6 +143,8 @@
     return list.slice().sort((a, b) => (state.sortDesc ? (b.ts || 0) - (a.ts || 0) : (a.ts || 0) - (b.ts || 0)));
   }
   function folderCount(fid) {
+    if (fid === "important") return src().filter((m) => importantOf(m) && m.folder !== "trash" && m.folder !== "spam").length;
+    if (fid.startsWith("cat-")) return src().filter((m) => catOf(m) === fid.slice(4) && m.folder === "inbox" && !m.archived).length;
     if (fid === "starred") return src().filter((m) => m.starred && m.folder !== "trash").length;
     if (fid === "all") return src().filter((m) => m.folder !== "trash" && m.folder !== "spam").length;
     if (fid === "inbox") return src().filter((m) => m.folder === "inbox" && !m.archived && m.unread).length;
@@ -168,12 +183,14 @@
 
     $("#mailList").innerHTML = list.map((m) => {
       const lab = m.label ? labelById(m.label) : null;
-      return `<li class="mail-item${m.unread ? " unread" : ""}${m.id === selectedId ? " selected" : ""}" data-id="${m.id}">
+      return `<li class="mail-item${m.unread ? " unread" : ""}${m.id === selectedId ? " selected" : ""}${selectedSet.has(m.id) ? " checked" : ""}" data-id="${m.id}">
         <div class="swipe-bg">${ICONS.trash}</div>
         <div class="mail-item-inner">
+          ${selecting ? `<span class="row-check">${selectedSet.has(m.id) ? "☑" : "☐"}</span>` : ""}
           ${m.unread ? '<span class="unread-dot"></span>' : ""}
           <div class="mail-row-1">
-            <span class="mail-from">${esc(m.from)}${m.starred ? '<span class="mail-star">★</span>' : ""}</span>
+            <span class="mail-from">${esc(m.from)}</span>
+            <span class="row-star${m.starred ? " on" : ""}" data-star="${m.id}" title="星标">${m.starred ? "★" : "☆"}</span>
             <span class="mail-date">${esc(m.date)}</span>
           </div>
           <div class="mail-subject">${esc(m.subject)}</div>
@@ -182,8 +199,18 @@
       </li>`;
     }).join("");
     $("#listEmpty").hidden = list.length > 0;
+    $("#listCount").textContent = list.length ? `共 ${list.length} 封` : "";
+    const sa = $("#btnSearchAll");
+    if (mode === "live" && searchQuery) { sa.hidden = false; sa.textContent = `在 Gmail 中搜索全部「${searchQuery}」`; }
+    else sa.hidden = true;
+    updateBatchBar();
     updatePager(list);
     return list;
+  }
+  function updateBatchBar() {
+    const bar = $("#batchBar");
+    bar.hidden = !(selecting && selectedSet.size > 0);
+    $("#batchCount").textContent = `已选 ${selectedSet.size} 封`;
   }
 
   function updatePager(list = visibleEmails()) {
@@ -209,7 +236,7 @@
         <div>
           <div><span class="meta-from">${esc(m.from)}</span><span class="meta-addr">${esc(m.address)}</span>
           <span class="meta-unsub" id="btnUnsub">退订</span></div>
-          <div class="meta-to">收件人：${esc(m.to)}</div>
+          <div class="meta-to">收件人：${esc(m.to)}${catOf(m) ? `<span class="cat-chip">${CAT_NAMES[catOf(m)]}</span>` : ""}${importantOf(m) ? '<span class="cat-chip imp">重要</span>' : ""}</div>
         </div>
         <div class="meta-date">${esc(m.time)}</div>
       </div>
@@ -220,11 +247,30 @@
         <button class="chip-btn" id="btnShowImages">显示图片</button>
       </div>
       <div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>
+      ${m.attachments && m.attachments.length ? `<div class="attach-block"><div class="attach-title">${ICONS.clip}<span>附件（${m.attachments.length}）</span></div><div class="attach-row">${m.attachments.map((at, i) => `<button class="attach-chip" data-att="${i}"><span class="attach-name">${esc(at.filename || "附件")}</span><span class="attach-size">${fmtSize(at.size)}</span></button>`).join("")}</div></div>` : ""}
       <div class="reading-actions">
         <button class="btn-primary" id="btnReply2">回复</button>
         <button class="btn-secondary" id="btnForward2">转发</button>
       </div>`;
     $("#btnStar").onclick = () => { m.starred = !m.starred; save(); renderAll(); };
+    box.querySelectorAll("[data-att]").forEach((chip) => {
+      chip.onclick = async () => {
+        const at = m.attachments[Number(chip.dataset.att)];
+        if (mode !== "live" || !at.attachmentId) { toast("演示附件仅作展示"); return; }
+        chip.disabled = true;
+        try {
+          const data = await window.MyMailGmail.downloadAttachment(m.id, at.attachmentId);
+          const bin = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+          const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+          const url = URL.createObjectURL(new Blob([bytes], { type: at.mimeType || "application/octet-stream" }));
+          const a = document.createElement("a");
+          a.href = url; a.download = at.filename || "attachment";
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 4000);
+        } catch (e) { toast("附件下载失败：" + e.message); }
+        chip.disabled = false;
+      };
+    });
     $("#btnTranslate").onclick = async () => {
       if (!m.bodyZh) {
         if (mode !== "live") { toast("这封邮件暂无译文"); return; }
@@ -301,6 +347,8 @@
   });
 
   /* ---------------- 左滑删除（指针事件，触摸和鼠标都生效） ---------------- */
+  const selectedSet = new Set();
+  let selecting = false;
   let swipe = null;         // {id, inner, bg, startX, startY, dx, active}
   let suppressClickUntil = 0;
   const listEl = $("#mailList");
@@ -346,8 +394,21 @@
   listEl.addEventListener("pointercancel", () => endSwipe(false));
   listEl.addEventListener("click", (e) => {
     if (Date.now() < suppressClickUntil) { e.stopPropagation(); e.preventDefault(); return; }
+    const star = e.target.closest("[data-star]");
+    if (star) {
+      const m = byId(star.dataset.star);
+      if (m) { m.starred = !m.starred; save(); renderNav(); renderList(); }
+      return;
+    }
     const li = e.target.closest("[data-id]");
-    if (li) select(li.dataset.id);
+    if (!li) return;
+    if (selecting) {
+      const id = li.dataset.id;
+      selectedSet.has(id) ? selectedSet.delete(id) : selectedSet.add(id);
+      renderList();
+      return;
+    }
+    select(li.dataset.id);
   }, true);
 
   /* ---------------- 文件夹 / 标签 / 抽屉 ---------------- */
@@ -410,6 +471,38 @@
     visibleEmails().forEach((m) => (m.unread = false));
     save(); renderAll(); toast("当前列表已全部标为已读");
   }
+  function batchDone(msg) {
+    const n = selectedSet.size;
+    selectedSet.clear(); selecting = false;
+    document.body.classList.remove("selecting");
+    save(); renderAll();
+    toast(msg.replace("{n}", n));
+  }
+  $("#batchArchive").onclick = () => { selectedSet.forEach((id) => { const m = byId(id); if (m && m.folder === "inbox") m.archived = true; }); batchDone("已归档 {n} 封"); };
+  $("#batchRead").onclick = () => { selectedSet.forEach((id) => { const m = byId(id); if (m) m.unread = false; }); batchDone("已标已读 {n} 封"); };
+  $("#batchTrash").onclick = () => { const ids = [...selectedSet]; ids.forEach((id) => { const m = byId(id); if (m) trashMail(m, true); }); selectedSet.clear(); selecting = false; document.body.classList.remove("selecting"); renderAll(); toast(`已删除 ${ids.length} 封（可逐封在废纸篓恢复）`); };
+  $("#batchCancel").onclick = () => { selectedSet.clear(); selecting = false; document.body.classList.remove("selecting"); renderList(); };
+  $("#menuSelectMode").onclick = () => {
+    $("#moreMenu").hidden = true;
+    selecting = !selecting;
+    if (!selecting) selectedSet.clear();
+    document.body.classList.toggle("selecting", selecting);
+    renderList();
+    toast(selecting ? "多选模式：点邮件行勾选" : "已退出多选");
+  };
+  $("#btnSearchAll").onclick = async () => {
+    const btn = $("#btnSearchAll");
+    btn.disabled = true; btn.textContent = "正在 Gmail 中搜索…";
+    try {
+      const found = await G().searchAll(searchQuery);
+      const map = new Map(liveEmails.map((m) => [m.id, m]));
+      let added = 0;
+      for (const em of found) if (!map.has(em.id)) { liveEmails.push(em); added++; }
+      renderAll();
+      toast(added ? `从 Gmail 找到并载入 ${added} 封` : "没有更多结果了");
+    } catch (e) { toast("搜索失败：" + e.message); }
+    btn.disabled = false;
+  };
   $("#menuMarkAllRead").onclick = () => { $("#moreMenu").hidden = true; markAllRead(); };
   $("#menuToggleSort").onclick = () => {
     state.sortDesc = !state.sortDesc; save();
@@ -479,7 +572,10 @@
   };
 
   /* ---------------- 设置 ---------------- */
-  $("#btnSettings").onclick = () => { closeSidebar(); $("#settingLang").value = state.lang; $("#settingTheme").value = state.themeMode; $("#settingsModal").hidden = false; };
+  $("#btnSettings").onclick = () => { closeSidebar(); $("#settingLang").value = state.lang; $("#settingTheme").value = state.themeMode; const d = $("#settingDensity"); if (d) d.value = state.density || "comfortable"; $("#settingsModal").hidden = false; };
+  const densitySel = $("#settingDensity");
+  if (densitySel) densitySel.onchange = (e) => { state.density = e.target.value; save(); applyDensity(); };
+  function applyDensity() { document.body.classList.toggle("density-compact", state.density === "compact"); }
   $("#btnCloseSettings").onclick = () => { $("#settingsModal").hidden = true; };
   $("#settingLang").onchange = (e) => { state.lang = e.target.value; save(); renderReading(); };
   $("#settingTheme").onchange = (e) => { state.themeMode = e.target.value; save(); applyTheme(); };
@@ -497,6 +593,9 @@
     if (e.target.matches("input, textarea, select")) return;
     if (e.key === "j") stepSelection(1);
     if (e.key === "k") stepSelection(-1);
+    if (e.key === "e") actOnSelected("archive");
+    if (e.key === "#") actOnSelected("trash");
+    if (e.key === "r") { const b = $("#btnReply2"); if (b && selectedId) b.click(); }
   });
 
   /* ---------------- Gmail 登录 ---------------- */
@@ -524,9 +623,11 @@
     const addr = profile.emailAddress || "";
     setAccountUI(addr.split("@")[0] || "Gmail", addr, initialOf(addr || "G"));
     document.querySelector(".sidebar-footer").innerHTML =
-      '<span class="sync-dot"></span> 已同步 · Gmail 实时数据（不落盘）';
+      '<span class="sync-dot"></span> 已同步 · ' + (profile.messagesTotal ? `邮箱共 ${profile.messagesTotal} 封 · ` : "") + 'Gmail 实时数据（不落盘）';
     document.body.classList.add("live-mode");
-    $("#settingsNote").textContent = "真实模式（Gmail）：邮件只在内存中显示、不落盘；令牌约 1 小时有效。只读+发送权限下，删除/归档仅在本页内生效。";
+    const sn1 = $("#settingsNote"); if (sn1) sn1.textContent = "真实模式（Gmail）：邮件只在内存中显示、不落盘；令牌约 1 小时有效。只读+发送权限下，删除/归档仅在本页内生效。";
+    const rl1 = $("#resetLabel"); if (rl1) rl1.textContent = "重新从 Gmail 拉取";
+    const rb1 = $("#btnResetData"); if (rb1) rb1.textContent = "拉取";
     hideLogin(); renderAll();
     const firstLive = visibleEmails()[0];
     if (firstLive) select(firstLive.id, false);
@@ -548,7 +649,9 @@
       G().clearToken();
       mode = "demo"; liveEmails = []; gmailProfile = null; selectedId = null;
       document.body.classList.remove("live-mode");
-      $("#settingsNote").textContent = "演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。";
+      const sn2 = $("#settingsNote"); if (sn2) sn2.textContent = "演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。";
+      const rl2 = $("#resetLabel"); if (rl2) rl2.textContent = "恢复演示数据";
+      const rb2 = $("#btnResetData"); if (rb2) rb2.textContent = "恢复";
       setAccountUI("Yangming", "demo@mymail.app", "Y");
       document.querySelector(".sidebar-footer").innerHTML =
         '<span class="sync-dot"></span> 已同步 · 演示数据';
@@ -562,6 +665,7 @@
   /* ---------------- 启动 ---------------- */
   hydrateIcons();
   applyTheme();
+  applyDensity();
   save();
   renderAll();
   const first = visibleEmails()[0];

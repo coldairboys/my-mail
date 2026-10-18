@@ -43,7 +43,7 @@
         <ul id="folderList" class="nav-list"><!-- JS 渲染 --></ul>
       </nav>
 
-      <nav class="nav-section" aria-label="标签">
+      <nav class="nav-section labels-section" aria-label="标签">
         <div class="nav-title">标签</div>
         <ul id="labelList" class="nav-list"><!-- JS 渲染 --></ul>
       </nav>
@@ -57,6 +57,7 @@
       <header class="list-header">
         <button class="icon-btn menu-btn" id="btnMenu" title="菜单" data-icon="menu"></button>
         <h1 id="currentFolderName">收件箱</h1>
+        <span class="list-count" id="listCount"></span>
         <div class="list-tools">
           <button class="icon-btn" id="btnTheme" title="主题：跟随系统" data-icon="theme-auto"></button>
           <div class="menu-wrap">
@@ -74,6 +75,7 @@
               <button id="menuMarkAllRead">全部标为已读</button>
               <button id="menuToggleSort">排序：最新在前</button>
               <button id="menuEmptyFolder" hidden>清空当前文件夹</button>
+              <button id="menuSelectMode">多选模式</button>
               <button id="menuResetData">恢复演示数据</button>
             </div>
           </div>
@@ -84,8 +86,16 @@
         <input id="searchInput" type="search" placeholder="搜索发件人、主题、正文…" autocomplete="off" />
         <button class="search-clear" id="btnClearSearch" hidden>×</button>
       </div>
+      <div class="batch-bar" id="batchBar" hidden>
+        <span id="batchCount"></span>
+        <button class="batch-btn" id="batchArchive">归档</button>
+        <button class="batch-btn" id="batchRead">标已读</button>
+        <button class="batch-btn" id="batchTrash">删除</button>
+        <button class="batch-btn" id="batchCancel">取消</button>
+      </div>
       <ul id="mailList" class="mail-list"><!-- JS 渲染 --></ul>
       <div id="listEmpty" class="list-empty" hidden>这里空空的 🌿</div>
+      <button id="btnSearchAll" class="search-all" hidden></button>
       <button class="fab" id="btnComposeFab" title="写邮件" data-icon="edit"></button>
     </section>
 
@@ -148,6 +158,13 @@
         </select>
       </label>
       <label class="setting-row">
+        <span>显示密度</span>
+        <select id="settingDensity">
+          <option value="comfortable">舒适</option>
+          <option value="compact">紧凑</option>
+        </select>
+      </label>
+      <label class="setting-row">
         <span>默认翻译目标语言</span>
         <select id="settingLang">
           <option value="zh">简体中文</option>
@@ -155,10 +172,11 @@
         </select>
       </label>
       <label class="setting-row">
-        <span>恢复演示数据</span>
+        <span id="resetLabel">恢复演示数据</span>
         <button class="btn-secondary" id="btnResetData">恢复</button>
       </label>
-      <p class="setting-note">当前为前端演示版：数据只保存在本机浏览器（localStorage），不连接真实邮箱。接入 Gmail / Outlook 的方案见仓库 README 的 Roadmap。</p>
+      <p class="setting-note" id="settingsNote">演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。</p>
+      <p class="setting-note">键盘快捷键：j / k 上下移动 · e 归档 · # 删除 · r 回复 · Esc 返回列表</p>
     </div>
   </div>
 
