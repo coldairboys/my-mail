@@ -1,34 +1,41 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>My Mail · 清爽邮件</title>
-  <meta name="description" content="My Mail — 一个清爽的三栏邮件管理网页版：收件箱、标签、搜索、一键翻译、写邮件，开源免费。" />
+  <meta name="description" content="My Mail — 一个清爽的三栏邮件管理网页版：收件箱、标签、搜索、一键翻译、写邮件，支持深色模式与手机端左滑删除，开源免费。" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%233b82f6'/><path d='M22 36l28 20 28-20' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='20' y='30' width='60' height='44' rx='8' fill='none' stroke='white' stroke-width='7'/></svg>" />
+  <script>
+    /* 首屏前先定主题，避免闪烁：读取已保存的主题模式，auto 时跟随系统 */
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem("mymail-state-v2") || "{}");
+        var mode = s.themeMode || "auto";
+        var dark = mode === "dark" || (mode === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
-  <!-- 应用窗口：仿桌面客户端的悬浮窗口造型 -->
-  <div class="app-window" id="app">
+  <div class="app" id="app">
 
     <!-- ===== 左栏：账号 + 文件夹 + 标签 ===== -->
-    <aside class="sidebar">
-      <div class="traffic-lights" aria-hidden="true">
-        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
-      </div>
-
+    <aside class="sidebar" id="sidebar">
       <div class="account">
         <div class="avatar avatar-account">Y</div>
         <div class="account-text">
           <div class="account-name">Yangming</div>
           <div class="account-mail">demo@mymail.app</div>
         </div>
+        <button class="icon-btn sidebar-close" id="btnCloseSidebar" title="关闭菜单" data-icon="x"></button>
       </div>
 
-      <button class="btn-compose" id="btnCompose">✎&nbsp; 写邮件</button>
-      <button class="btn-ghost" id="btnFocusSearch">⌕&nbsp; 搜索</button>
-      <button class="btn-ghost" id="btnSettings">⚙&nbsp; 设置</button>
+      <button class="btn-compose" id="btnCompose"><span data-icon="edit"></span>写邮件</button>
+      <button class="btn-ghost" id="btnFocusSearch"><span data-icon="search"></span>搜索</button>
+      <button class="btn-ghost" id="btnSettings"><span data-icon="sliders"></span>设置</button>
 
       <nav class="nav-section" aria-label="邮件文件夹">
         <div class="nav-title">邮件</div>
@@ -42,37 +49,59 @@
 
       <div class="sidebar-footer"><span class="sync-dot"></span> 已同步 · 演示数据</div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
 
     <!-- ===== 中栏：邮件列表 ===== -->
     <section class="list-pane">
       <header class="list-header">
+        <button class="icon-btn menu-btn" id="btnMenu" title="菜单" data-icon="menu"></button>
         <h1 id="currentFolderName">收件箱</h1>
         <div class="list-tools">
-          <button class="icon-btn" id="btnFilterUnread" title="只看未读">⧩</button>
-          <button class="icon-btn" id="btnMarkAllRead" title="全部标为已读">✓✓</button>
+          <button class="icon-btn" id="btnTheme" title="主题：跟随系统" data-icon="theme-auto"></button>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="btnFilter" title="筛选" data-icon="filter"></button>
+            <div class="dropdown" id="filterMenu" hidden>
+              <button data-filter="all">全部邮件</button>
+              <button data-filter="unread">只看未读</button>
+              <button data-filter="read">只看已读</button>
+              <button data-filter="starred">只看已加星标</button>
+            </div>
+          </div>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="btnMore" title="更多" data-icon="more"></button>
+            <div class="dropdown" id="moreMenu" hidden>
+              <button id="menuMarkAllRead">全部标为已读</button>
+              <button id="menuToggleSort">排序：最新在前</button>
+              <button id="menuEmptyFolder" hidden>清空当前文件夹</button>
+              <button id="menuResetData">恢复演示数据</button>
+            </div>
+          </div>
         </div>
       </header>
       <div class="search-box">
-        <span class="search-icon">⌕</span>
+        <span class="search-icon" data-icon="search"></span>
         <input id="searchInput" type="search" placeholder="搜索发件人、主题、正文…" autocomplete="off" />
         <button class="search-clear" id="btnClearSearch" hidden>×</button>
       </div>
       <ul id="mailList" class="mail-list"><!-- JS 渲染 --></ul>
       <div id="listEmpty" class="list-empty" hidden>这里空空的 🌿</div>
+      <button class="fab" id="btnComposeFab" title="写邮件" data-icon="edit"></button>
     </section>
 
     <!-- ===== 右栏：阅读区 ===== -->
     <main class="reading-pane">
       <header class="reading-toolbar">
         <div class="toolbar-left">
-          <button class="icon-btn" data-action="prev" title="上一封">‹</button>
-          <button class="icon-btn" data-action="next" title="下一封">›</button>
+          <button class="icon-btn back-btn" id="btnBack" title="返回列表" data-icon="chevron-left"></button>
+          <button class="icon-btn" id="btnPrev" title="上一封" data-icon="chevron-left"></button>
+          <button class="icon-btn" id="btnNext" title="下一封" data-icon="chevron-right"></button>
+          <span class="page-pos" id="pagePos"></span>
         </div>
         <div class="toolbar-right">
-          <button class="icon-btn" data-action="snooze" title="延后到明天">◷</button>
-          <button class="icon-btn" data-action="archive" title="归档">#</button>
-          <button class="icon-btn" data-action="spam" title="标为垃圾邮件">⊘</button>
-          <button class="icon-btn" data-action="trash" title="删除">🗑</button>
+          <button class="icon-btn" data-action="snooze" title="延后到明天" data-icon="clock"></button>
+          <button class="icon-btn" data-action="archive" title="归档" data-icon="archive"></button>
+          <button class="icon-btn" data-action="spam" title="标为垃圾邮件" data-icon="spam"></button>
+          <button class="icon-btn" data-action="trash" title="删除" data-icon="trash"></button>
         </div>
       </header>
 
@@ -89,7 +118,7 @@
     <div class="modal">
       <header class="modal-header">
         <span>新邮件</span>
-        <button class="icon-btn" id="btnCloseCompose" title="存为草稿并关闭">×</button>
+        <button class="icon-btn" id="btnCloseCompose" title="存为草稿并关闭" data-icon="x"></button>
       </header>
       <label class="field"><span>收件人</span><input id="composeTo" type="email" placeholder="name@example.com" /></label>
       <label class="field"><span>主题</span><input id="composeSubject" type="text" placeholder="（无主题）" /></label>
@@ -102,13 +131,21 @@
     </div>
   </div>
 
-  <!-- ===== 设置弹窗（演示） ===== -->
+  <!-- ===== 设置弹窗 ===== -->
   <div class="modal-backdrop" id="settingsModal" hidden>
     <div class="modal modal-small">
       <header class="modal-header">
         <span>设置</span>
-        <button class="icon-btn" id="btnCloseSettings">×</button>
+        <button class="icon-btn" id="btnCloseSettings" data-icon="x"></button>
       </header>
+      <label class="setting-row">
+        <span>界面主题</span>
+        <select id="settingTheme">
+          <option value="auto">跟随系统</option>
+          <option value="light">白天</option>
+          <option value="dark">黑夜</option>
+        </select>
+      </label>
       <label class="setting-row">
         <span>默认翻译目标语言</span>
         <select id="settingLang">
@@ -124,7 +161,10 @@
     </div>
   </div>
 
-  <div class="toast" id="toast" hidden></div>
+  <div class="toast" id="toast" hidden>
+    <span id="toastText"></span>
+    <button id="toastAction" hidden>撤销</button>
+  </div>
 
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>

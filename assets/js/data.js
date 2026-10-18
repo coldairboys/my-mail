@@ -1,297 +1,277 @@
-/* My Mail · 演示数据
-   全部为虚构示例邮件，不含任何真实账号信息。
-   每封英文邮件都带一份中文译文（bodyZh），点「翻译」时切换显示；
-   中文邮件带英文译文（bodyEn），逻辑相同。 */
+/* My Mail · 演示数据（v2）
+   全部邮件均为本项目原创虚构，不取材于任何真实邮件或截图。
+   英文邮件带中文译文（bodyZh），中文邮件带英文译文，点「翻译」切换显示。
+   ts 为排序用的时间戳（越大越新）。 */
 
 const LABELS = [
-  { id: "work",       name: "工作",     color: "#f5a623" },
-  { id: "reading",    name: "阅读",     color: "#7ed3a6" },
-  { id: "dev",        name: "开发",     color: "#5aa2ff" },
-  { id: "bills",      name: "账单",     color: "#e8736a" },
-  { id: "newsletter", name: "newsletter", color: "#b8bec9" },
+  { id: "work",       name: "工作", color: "#f5a623" },
+  { id: "life",       name: "生活", color: "#7ed3a6" },
+  { id: "dev",        name: "开发", color: "#5aa2ff" },
+  { id: "bills",      name: "账单", color: "#e8736a" },
+  { id: "newsletter", name: "订阅", color: "#b8bec9" },
 ];
 
 const FOLDERS = [
-  { id: "inbox",   name: "收件箱",   icon: "▤" },
-  { id: "starred", name: "已加星标", icon: "☆" },
-  { id: "snoozed", name: "已延后",   icon: "◷" },
-  { id: "drafts",  name: "草稿",     icon: "✎" },
-  { id: "sent",    name: "已发送",   icon: "➤" },
-  { id: "all",     name: "所有邮件", icon: "✉" },
-  { id: "spam",    name: "垃圾邮件", icon: "⊘" },
-  { id: "trash",   name: "废纸篓",   icon: "🗑" },
+  { id: "inbox",   name: "收件箱",   icon: "inbox" },
+  { id: "starred", name: "已加星标", icon: "star" },
+  { id: "snoozed", name: "已延后",   icon: "clock" },
+  { id: "drafts",  name: "草稿",     icon: "edit" },
+  { id: "sent",    name: "已发送",   icon: "send" },
+  { id: "all",     name: "所有邮件", icon: "mail" },
+  { id: "spam",    name: "垃圾邮件", icon: "spam" },
+  { id: "trash",   name: "废纸篓",   icon: "trash" },
 ];
 
-/* folder 字段表示邮件当前所在位置：inbox / snoozed / drafts / sent / spam / trash
-   archived=true 表示已归档（只在「所有邮件」可见） */
+/* folder：inbox / snoozed / drafts / sent / spam / trash；archived=true 只在「所有邮件」可见 */
 const SEED_EMAILS = [
   {
-    id: "m01", from: "Anne-Laure Le Cunff", address: "annelaure@nesslabs.com",
-    to: "我", date: "10月15日", time: "10月15日 21:07",
-    subject: "Ness Labs: Outsourcing Discovery 🍎",
-    snippet: "What do we lose when we outsource the process of discovery?…",
-    label: "reading", folder: "inbox", unread: true, starred: false,
+    id: "m01", ts: 202610181930, from: "陈默", address: "chenmo@brightlab.example",
+    to: "我", date: "10月18日", time: "10月18日 19:30",
+    subject: "明早十点过一遍发布清单",
+    snippet: "我把清单整理成了一页纸，明早十点对一下，没问题就…",
+    label: "work", folder: "inbox", unread: true, starred: false,
     body: [
-      "Hi friends,",
-      "What do we lose when we outsource the process of discovery? This question has been on my mind these past few weeks, as I've followed the debate around OpenAI's claims to have solved hundreds of longstanding mathematical problems.",
-      "As a hypercurious neuroscientist and writer, I know how much joy can be found in research and creative work. So beyond the very real practical concerns, I wanted to explore the human side of the debate: what happens to our curiosity and sense of meaning when machines start doing the work we love?",
-      "I don't have all the answers, but I hope today's essay opens up a conversation about what we might lose in the race of increasing productive efficiency at the cost of human curiosity.",
-      "— Anne-Laure"
+      "Yangming，",
+      "发布清单我整理成了一页纸，一共十二项，其中三项要你确认：更新说明的措辞、回滚方案的联系人、还有公告发布时间。",
+      "明早十点我们对一遍，没问题就按计划走。对完我请你喝楼下那家新换的豆子。",
+      "— 陈默"
     ],
     bodyZh: [
-      "朋友们好，",
-      "当我们把「发现」的过程外包出去时，我们会失去什么？过去几周我一直在想这个问题——起因是关于 OpenAI 声称解决了数百个长期未解数学难题的争论。",
-      "作为一名充满好奇心的神经科学家和写作者，我深知研究与创作的乐趣所在。所以抛开现实层面的担忧，我想探讨这场争论中更人性的一面：当机器开始做我们热爱的工作时，我们的好奇心和意义感会变成什么样？",
-      "我没有全部答案，但希望今天这篇文章能开启一场讨论：在以牺牲人类好奇心为代价、不断提高生产效率的竞赛中，我们可能会失去什么。",
-      "— Anne-Laure"
+      "Yangming,",
+      "I've condensed the release checklist into one page — twelve items, three of which need your confirmation: the wording of the release notes, the contact person for the rollback plan, and the announcement time.",
+      "Let's go through it tomorrow at 10am. If all is well, we proceed as planned. Coffee afterwards — the place downstairs just got new beans.",
+      "— Chen Mo"
     ],
   },
   {
-    id: "m02", from: "Rajesh Rajput", address: "rajesh@example.com",
-    to: "我", date: "10月15日", time: "10月15日 18:42",
-    subject: "New Release — Blubird Typeface",
-    snippet: "Blubird is a warm, rounded typeface family, now with…",
-    label: "reading", folder: "inbox", unread: true, starred: false,
-    body: [
-      "Hi there,",
-      "Blubird 1.2 is out. This release adds a full set of rounded alternates, better kerning for display sizes, and — finally — proper support for Vietnamese.",
-      "Existing customers can download the update for free from their library page.",
-      "Enjoy, Rajesh"
-    ],
-    bodyZh: [
-      "你好，",
-      "Blubird 1.2 发布了。这个版本加入了整套圆角替代字形、优化了大字号的字距，并且——终于——完整支持越南语。",
-      "老用户可以在自己的库页面免费下载更新。",
-      "祝用得开心，Rajesh"
-    ],
-  },
-  {
-    id: "m03", from: "TypeSafe AI", address: "hello@typesafe.example",
-    to: "我", date: "10月15日", time: "10月15日 15:03",
-    subject: "Happy JevDay! Jev 1.14.0 is here",
-    snippet: "Jev 1.14.0, images, a new plugin system and…",
-    label: "dev", folder: "inbox", unread: true, starred: true,
-    body: [
-      "Hey developer,",
-      "Jev 1.14.0 is here: inline image support in the terminal, a brand-new plugin system, and startup time cut in half.",
-      "Run `jev update` to get it, and check the changelog for migration notes.",
-      "— The TypeSafe team"
-    ],
-    bodyZh: [
-      "开发者你好，",
-      "Jev 1.14.0 来了：终端内嵌图片支持、全新的插件系统，启动时间缩短了一半。",
-      "运行 `jev update` 即可升级，迁移注意事项见更新日志。",
-      "— TypeSafe 团队"
-    ],
-  },
-  {
-    id: "m04", from: "Sesame Team", address: "team@sesame.example",
-    to: "我", date: "10月15日", time: "10月15日 11:26",
-    subject: "Your Sesame app just got better",
-    snippet: "Pick the perfect moment: scheduled sends are…",
-    label: null, folder: "inbox", unread: false, starred: false,
-    body: [
-      "Hi,",
-      "Your Sesame app just got better: you can now schedule messages, pin up to five conversations, and export your history in one tap.",
-      "Update the app to try it out.",
-      "— Sesame Team"
-    ],
-    bodyZh: [
-      "你好，",
-      "你的 Sesame 应用刚刚升级：现在可以定时发送消息、置顶最多五个对话，并一键导出历史记录。",
-      "更新应用即可体验。",
-      "— Sesame 团队"
-    ],
-  },
-  {
-    id: "m05", from: "Google Developers", address: "developers@google.example",
-    to: "我", date: "10月15日", time: "10月15日 09:14",
-    subject: "[Action Advised] Migrate your API keys before Nov 1",
-    snippet: "Legacy keys will stop working after the deadline…",
-    label: "work", folder: "inbox", unread: false, starred: false,
-    body: [
-      "Hello,",
-      "This is a reminder that legacy API keys will stop working after November 1. Please migrate to the new key format in your console before the deadline to avoid service interruption.",
-      "No action is needed if you have already migrated.",
-      "— Google Developers"
-    ],
-    bodyZh: [
-      "你好，",
-      "提醒你：旧版 API 密钥将在 11 月 1 日后停止工作。请在截止日期前到控制台迁移到新版密钥格式，以免服务中断。",
-      "如果你已经迁移完成，无需任何操作。",
-      "— Google Developers"
-    ],
-  },
-  {
-    id: "m06", from: "Avec Early Access", address: "early@avec.example",
-    to: "我", date: "10月15日", time: "10月15日 08:30",
-    subject: "Needs reply / Awaiting reply + Desktop invite",
-    snippet: "Your desktop invite is ready — one link, no waitlist…",
-    label: "work", folder: "inbox", unread: false, starred: false,
-    body: [
-      "Hi,",
-      "Your Avec desktop invite is ready. One link, no waitlist — click to activate your workspace.",
-      "We're also testing 'awaiting reply' nudges this week. Tell us what you think.",
-      "— Avec"
-    ],
-    bodyZh: [
-      "你好，",
-      "你的 Avec 桌面端邀请已经准备好。一个链接，无需排队——点击即可激活你的工作区。",
-      "本周我们还在测试「等待回复」提醒功能，欢迎告诉我们你的想法。",
-      "— Avec"
-    ],
-  },
-  {
-    id: "m07", from: "DEX 周刊", address: "weekly@dex.example",
-    to: "我", date: "10月14日", time: "10月14日 20:00",
-    subject: "#367 压缩和解压缩：DEX 周刊",
-    snippet: "本周阅读原文 #367：把复杂讲简单，把简单讲透…",
-    label: "reading", folder: "inbox", unread: false, starred: false,
-    body: [
-      "大家好，这里是 DEX 周刊第 367 期。",
-      "本期主题是「压缩和解压缩」：好的表达就像好的压缩算法——把复杂讲简单，把简单讲透。文末附本周精选的五篇文章和两个小工具。",
-      "下周见。"
-    ],
-    bodyZh: [
-      "Hello, this is DEX Weekly, issue 367.",
-      "This week's theme is 'compression and decompression': good writing is like a good compression algorithm — it makes the complex simple, and the simple profound. Five curated articles and two small tools are attached at the end.",
-      "See you next week."
-    ],
-  },
-  {
-    id: "m08", from: "Nosana", address: "news@nosana.example",
-    to: "我", date: "10月14日", time: "10月14日 17:45",
-    subject: "We're live: From AI idea to working product",
-    snippet: "Our mainnet launch recap and what's next…",
+    id: "m02", ts: 202610181705, from: "Mia Chen", address: "mia@fieldnotes.example",
+    to: "我", date: "10月18日", time: "10月18日 17:05",
+    subject: "Field Notes #42: Walking the Coast Path",
+    snippet: "Three days, forty kilometres, and one very patient dog…",
     label: "newsletter", folder: "inbox", unread: true, starred: false,
     body: [
-      "We're live!",
-      "From AI idea to working product: our mainnet is now open to everyone. This recap covers the launch numbers, the roadmap for Q1, and how to get started in five minutes.",
-      "Thanks for being early. — Nosana"
+      "Hello reader,",
+      "This week I walked the northern coast path: three days, forty kilometres, and one very patient dog who waited at every gate.",
+      "The full photo essay is on the site, including the lighthouse keeper's story about the winter the sea froze at the harbour mouth.",
+      "Until next week, Mia"
     ],
     bodyZh: [
-      "我们上线了！",
-      "从 AI 想法到可用的产品：主网现已向所有人开放。这篇回顾包括上线数据、第一季度路线图，以及如何在五分钟内上手。",
-      "感谢你来得这么早。— Nosana"
+      "读者你好，",
+      "这周我走完了北段海岸步道：三天、四十公里，还有一条在每个栅栏门前都耐心等我的狗。",
+      "完整的图文游记在网站上，包括灯塔看守人讲的那个故事——有一年冬天，海水在港口入口结了冰。",
+      "下周见，Mia"
     ],
   },
   {
-    id: "m09", from: "Vercel", address: "notifications@vercel.example",
-    to: "我", date: "10月14日", time: "10月14日 14:12",
-    subject: "1 domain needs configuration on team 'demo'",
-    snippet: "A DNS record is missing for your custom domain…",
+    id: "m03", ts: 202610181420, from: "城市图书馆", address: "notice@citylibrary.example",
+    to: "我", date: "10月18日", time: "10月18日 14:20",
+    subject: "借阅到期提醒：《海边理发店》还有 3 天",
+    snippet: "你借阅的图书将于 10 月 21 日到期，可在线续借一次…",
+    label: "life", folder: "inbox", unread: true, starred: true,
+    body: [
+      "读者你好，",
+      "你借阅的《海边理发店》将于 10 月 21 日到期。目前该书无人预约，你可以在小程序里续借一次，延长 30 天。",
+      "逾期每天 0.1 元，记得按时处理。祝阅读愉快。",
+      "— 城市图书馆"
+    ],
+    bodyZh: [
+      "Dear reader,",
+      "The book you borrowed, 'The Seaside Barbershop', is due on October 21. Nobody has reserved it, so you can renew it once in the mini-program for another 30 days.",
+      "Overdue fines are 0.1 yuan per day. Happy reading.",
+      "— City Library"
+    ],
+  },
+  {
+    id: "m04", ts: 202610181105, from: "前端周报", address: "weekly@frontend.example",
+    to: "我", date: "10月18日", time: "10月18日 11:05",
+    subject: "第 128 期：把按钮做小，把字做大",
+    snippet: "本期聊聊移动端可达性：拇指热区、对比度和那些…",
     label: "dev", folder: "inbox", unread: false, starred: false,
     body: [
-      "Hi,",
-      "One domain on your team needs configuration: a DNS record is missing for your custom domain. Add the CNAME record shown in your dashboard to finish setup.",
-      "— Vercel"
+      "各位好，这里是前端周报第 128 期。",
+      "本期主题是移动端可达性：为什么主按钮至少要 44px、为什么正文对比度不能靠感觉、以及三个真实项目踩过的坑。",
+      "文末照例有一份可以带走的检查清单。"
     ],
     bodyZh: [
-      "你好，",
-      "你团队里有一个域名需要配置：自定义域名缺少一条 DNS 记录。把控制台里显示的 CNAME 记录加上即可完成设置。",
-      "— Vercel"
+      "Hello everyone, this is Frontend Weekly, issue 128.",
+      "This week's topic is mobile accessibility: why primary buttons need at least 44px, why body-text contrast shouldn't be left to gut feeling, and pitfalls from three real projects.",
+      "As always, there's a takeaway checklist at the end."
     ],
   },
   {
-    id: "m10", from: "GitHub", address: "notifications@github.example",
-    to: "我", date: "10月14日", time: "10月14日 10:05",
-    subject: "[GitHub] Cursor is requesting updated permissions",
-    snippet: "A third-party app is requesting broader access…",
-    label: "dev", folder: "inbox", unread: false, starred: true,
+    id: "m05", ts: 202610180930, from: "云朵面包房", address: "order@cloudbakery.example",
+    to: "我", date: "10月18日", time: "10月18日 09:30",
+    subject: "订单已备好：桂花米面包 ×2，明早自提",
+    snippet: "你的订单已经打包好啦，凭取货码 6 位尾号到店…",
+    label: "life", folder: "inbox", unread: false, starred: false,
     body: [
-      "Hey there,",
-      "A third-party application is requesting updated permissions for your account, including read access to your repositories.",
-      "If you didn't request this, you can ignore this email — nothing changes until you approve.",
-      "— GitHub"
+      "你好，",
+      "你的订单已经备好了：桂花米面包 ×2。明早 8 点后凭取货码到店自提，当天现烤，放到下午口感会打折，尽量早点来。",
+      "谢谢惠顾，云朵面包房"
     ],
     bodyZh: [
-      "你好，",
-      "有一个第三方应用正在请求你账号的更高权限，包括读取你的仓库。",
-      "如果你没有发起这个请求，忽略这封邮件即可——在你批准之前，什么都不会改变。",
-      "— GitHub"
+      "Hi,",
+      "Your order is ready: osmanthus rice bread ×2. Pick it up in store after 8am tomorrow with your pickup code. It's baked fresh that morning — try to come early, it loses its texture by afternoon.",
+      "Thanks, Cloud Bakery"
     ],
   },
   {
-    id: "m11", from: "Craft Docs", address: "news@craft.example",
-    to: "我", date: "10月14日", time: "10月14日 09:00",
-    subject: "Craft 更新：快捷指令、小组件、本地化",
-    snippet: "这次更新带来快捷指令支持和全新的桌面小组件…",
+    id: "m06", ts: 202610172110, from: "Blue Sky Airlines", address: "eticket@bluesky.example",
+    to: "我", date: "10月17日", time: "10月17日 21:10",
+    subject: "Your e-ticket: Flight BS 2047 confirmed",
+    snippet: "Booking ref KX8P2Q — check-in opens 24 hours before…",
+    label: "bills", folder: "inbox", unread: false, starred: true,
+    body: [
+      "Dear passenger,",
+      "Your booking is confirmed. Flight BS 2047, booking reference KX8P2Q. Online check-in opens 24 hours before departure, and your baggage allowance is one checked bag up to 23 kg.",
+      "Please arrive at the airport at least 90 minutes before departure. Safe travels!",
+      "— Blue Sky Airlines"
+    ],
+    bodyZh: [
+      "尊敬的旅客，",
+      "你的预订已确认。航班 BS 2047，预订编号 KX8P2Q。在线值机在起飞前 24 小时开放，托运行李额度为一件、不超过 23 公斤。",
+      "请至少提前 90 分钟到达机场。祝旅途平安！",
+      "— 蓝天航空"
+    ],
+  },
+  {
+    id: "m07", ts: 202610171800, from: "慢跑俱乐部", address: "club@runhappy.example",
+    to: "我", date: "10月17日", time: "10月17日 18:00",
+    subject: "周六夜跑路线：沿江 8 公里，配速分组",
+    snippet: "本周六晚七点老地方集合，A 组 5 分半，B 组 6 分半…",
+    label: "life", folder: "inbox", unread: false, starred: false,
+    body: [
+      "各位跑友，",
+      "本周六夜跑走沿江路线，全程 8 公里。A 组配速 5 分半，B 组 6 分半，新人跟 B 组，终点有补给和合影。",
+      "晚七点老地方集合，下雨自动取消，会在群里通知。"
+    ],
+    bodyZh: [
+      "Hi runners,",
+      "This Saturday's night run follows the riverside route, 8 km in total. Group A runs at 5:30/km, Group B at 6:30/km — newcomers, please join Group B. Snacks and a group photo at the finish.",
+      "Meet at 7pm at the usual spot. Rain cancels automatically; we'll post in the group chat."
+    ],
+  },
+  {
+    id: "m08", ts: 202610171430, from: "苏晴", address: "suqing@brightlab.example",
+    to: "我", date: "10月17日", time: "10月17日 14:30",
+    subject: "Re: 季度复盘文档，我补了数据部分",
+    snippet: "数据口径统一成自然月了，图也换成了新版，你看看…",
+    label: "work", folder: "inbox", unread: false, starred: false,
+    body: [
+      "Yangming，",
+      "复盘文档我补完了：数据口径统一改成自然月，图换成了新版，结论部分按你上次的意见收敛到三条。",
+      "你有空看一眼，没问题我周五发全员。",
+      "— 苏晴"
+    ],
+    bodyZh: [
+      "Yangming,",
+      "I've finished my part of the quarterly review doc: all figures now use calendar months, charts are the new version, and the conclusions are trimmed to three points as you suggested.",
+      "Take a look when you can — if it's fine, I'll send it to everyone on Friday.",
+      "— Su Qing"
+    ],
+  },
+  {
+    id: "m09", ts: 202610171015, from: "Harbor Hostel", address: "stay@harborhostel.example",
+    to: "我", date: "10月17日", time: "10月17日 10:15",
+    subject: "How was your stay? A two-minute survey",
+    snippet: "Tell us one thing we did well and one thing to fix…",
     label: "newsletter", folder: "inbox", unread: false, starred: false,
     body: [
-      "你好，",
-      "Craft 本次更新带来：快捷指令支持、全新的桌面小组件，以及更完整的简体中文本地化。",
-      "打开应用即可更新，更新日志里有详细列表。"
-    ],
-    bodyZh: [
       "Hi,",
-      "This Craft update brings: Shortcuts support, brand-new desktop widgets, and more complete Simplified Chinese localization.",
-      "Open the app to update — the full list is in the changelog."
-    ],
-  },
-  {
-    id: "m12", from: "长桥证券（香港）", address: "service@longbridge.example",
-    to: "我", date: "10月14日", time: "10月14日 08:15",
-    subject: "换汇提醒：尊敬的用户，您的综合账户有一笔…",
-    snippet: "您有一笔换汇订单已成交，详情见账户流水…",
-    label: "bills", folder: "inbox", unread: false, starred: false,
-    body: [
-      "尊敬的用户，",
-      "您的综合账户有一笔换汇订单已成交，成交汇率与金额详见账户流水。如非本人操作，请立即联系客服。",
-      "— 长桥证券"
+      "Thanks for staying with us last weekend. We'd love two minutes of your time: tell us one thing we did well and one thing we should fix.",
+      "Everyone who completes the survey gets 10% off their next stay.",
+      "— Harbor Hostel"
     ],
     bodyZh: [
-      "Dear customer,",
-      "A currency exchange order in your integrated account has been executed. Please see your account statement for the rate and amount. If this wasn't you, contact support immediately.",
-      "— Longbridge Securities"
+      "你好，",
+      "感谢你上周末入住我们家。想占用你两分钟：告诉我们一件我们做得好的事，和一件应该改进的事。",
+      "完成问卷的客人下次入住可享九折。",
+      "— 港湾青年旅舍"
     ],
   },
   {
-    id: "m13", from: "Lemon Squeezy", address: "receipts@lemonsqueezy.example",
-    to: "我", date: "10月14日", time: "10月14日 07:30",
-    subject: "You've been paid!",
-    snippet: "Your weekly payout of $128.40 is on its way…",
+    id: "m10", ts: 202610161955, from: "市政缴费", address: "billing@utility.example",
+    to: "我", date: "10月16日", time: "10月16日 19:55",
+    subject: "10 月水费账单已生成：¥86.40",
+    snippet: "本期用水 12 吨，应缴 86.40 元，缴费截止 10 月 28 日…",
     label: "bills", folder: "inbox", unread: false, starred: false,
     body: [
-      "Good news — you've been paid!",
-      "Your weekly payout of $128.40 is on its way to your bank account and should arrive within 2 business days.",
-      "A detailed breakdown is attached to this email.",
-      "— Lemon Squeezy"
+      "你好，",
+      "你户 10 月水费账单已生成：本期用水 12 吨，应缴 86.40 元，缴费截止 10 月 28 日。",
+      "已开通自动扣款的用户无需操作，扣款结果会另行通知。"
     ],
     bodyZh: [
-      "好消息——你收到付款了！",
-      "你本周的 $128.40 付款正在汇往你的银行账户，预计 2 个工作日内到账。",
-      "详细明细附在这封邮件里。",
-      "— Lemon Squeezy"
+      "Hello,",
+      "Your October water bill is ready: 12 tonnes used, 86.40 yuan due by October 28.",
+      "If you have auto-pay enabled, no action is needed — we'll notify you of the result."
     ],
   },
   {
-    id: "m14", from: "我", address: "demo@mymail.app",
-    to: "朋友", date: "10月13日", time: "10月13日 22:18",
-    subject: "周末去试新开的咖啡店？",
-    snippet: "楼下新开了一家，听说手冲不错，周六下午…",
+    id: "m11", ts: 202610161600, from: "月读会", address: "club@monthlyreads.example",
+    to: "我", date: "10月16日", time: "10月16日 16:00",
+    subject: "十一月共读：《夜晚的潜水艇》，附讨论提纲",
+    snippet: "这次选了一本短篇集，四次读完，每周三晚线上聊…",
+    label: "newsletter", folder: "inbox", unread: false, starred: false,
+    body: [
+      "大家好，",
+      "十一月共读选的是《夜晚的潜水艇》，一本短篇集，四周读完，每周三晚线上聊一晚。",
+      "讨论提纲附在邮件末尾，第一次聚会先聊前两篇，不用有压力，读多少聊多少。"
+    ],
+    bodyZh: [
+      "Hello everyone,",
+      "November's shared read is 'The Night Submarine', a short-story collection we'll finish over four weeks, meeting online every Wednesday evening.",
+      "Discussion prompts are at the end of this email. For the first session we'll cover the first two stories — no pressure, read as much as you can."
+    ],
+  },
+  {
+    id: "m12", ts: 202610161120, from: "阿哲", address: "azhe@travelnotes.example",
+    to: "我", date: "10月16日", time: "10月16日 11:20",
+    subject: "大理三天实测路线（含避坑）",
+    snippet: "上次你问的路线我整理完了，第三天那个市场一定要早去…",
+    label: "life", folder: "inbox", unread: true, starred: false,
+    body: [
+      "Yangming，",
+      "上次你问的大理路线我实测完了，整理成三天版：第一天古城慢逛，第二天环海西路骑行，第三天赶早市——那个市场一定要早去，九点以后就只剩游客了。",
+      "避坑也写了：两家网红店可以跳过，名单在最后。你去之前喊我，我把定位包发你。",
+      "— 阿哲"
+    ],
+    bodyZh: [
+      "Yangming,",
+      "I've tested the Dali route you asked about and written it up as a three-day plan: old town on day one, cycling the west lakeshore on day two, and the morning market on day three — go early, after 9am it's all tourists.",
+      "Pitfalls included: two influencer-famous restaurants you can skip, listed at the end. Ping me before you go and I'll send you my saved pins.",
+      "— Azhe"
+    ],
+  },
+  {
+    id: "m13", ts: 202610151340, from: "我", address: "demo@mymail.app",
+    to: "林小满", date: "10月15日", time: "10月15日 13:40",
+    subject: "阳台的薄荷长疯了，周末来分一盆？",
+    snippet: "薄荷已经爬满半个阳台了，你上次说想要，分你一盆…",
     label: null, folder: "sent", unread: false, starred: false,
     body: [
-      "周六下午有空吗？楼下新开了一家咖啡店，听说手冲不错，一起去试试。",
-      "三点左右，我请客。"
+      "小满，",
+      "阳台的薄荷已经爬满半个花架了，你上次说想要，周末来分一盆带走吧，顺便在我这儿吃午饭。",
+      "不用带东西，人来就行。"
     ],
     bodyZh: [
-      "Free on Saturday afternoon? A new coffee shop opened downstairs — I hear their pour-over is great. Let's try it together.",
-      "Around 3pm, my treat."
+      "Xiaoman,",
+      "The mint on my balcony has taken over half the plant stand. You said you wanted some — come by this weekend and take a pot home, and stay for lunch.",
+      "No need to bring anything, just yourself."
     ],
   },
   {
-    id: "m15", from: "Prize Center", address: "win@prize-center.example",
-    to: "我", date: "10月13日", time: "10月13日 03:11",
-    subject: "CONGRATS! You won a $1000 gift card!!!",
-    snippet: "Click NOW to claim your prize before it expires…",
+    id: "m14", ts: 202610150815, from: "中奖中心", address: "claim@luckyprize.example",
+    to: "我", date: "10月15日", time: "10月15日 08:15",
+    subject: "紧急！你的账户有一笔待领取奖励",
+    snippet: "名额有限，点击链接填写银行卡信息即可领取…",
     label: null, folder: "spam", unread: false, starred: false,
     body: [
-      "CONGRATS! You have been selected to win a $1000 gift card.",
-      "Click the link within 24 hours to claim. (演示：这是一封被正确归类到垃圾邮件的中奖诈骗示例。)"
+      "恭喜你被抽中！名额有限，请立即点击链接、填写银行卡信息领取奖励。",
+      "（演示说明：这是典型的钓鱼话术示例，被归类在垃圾邮件里。真实场景下不要点链接、不要填任何银行卡信息。）"
     ],
     bodyZh: [
-      "恭喜！你被选中赢得一张 1000 美元礼品卡。",
-      "请在 24 小时内点击链接领取。（演示：这是一封被正确归类到垃圾邮件的中奖诈骗示例。）"
+      "Congratulations, you've been selected! Limited spots — click the link and enter your bank card details to claim your reward.",
+      "(Demo note: this is a typical phishing script, filed under Spam. In real life, never click such links or enter bank details.)"
     ],
   },
 ];
