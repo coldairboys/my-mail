@@ -243,7 +243,7 @@
     const profile = await api("profile");
     const byIdMap = new Map();
     const jobs = [
-      { labelIds: "INBOX", maxResults: "40" },
+      { labelIds: "INBOX", maxResults: String(window.MyMailFetchCount || 40) },
       { labelIds: "SENT", maxResults: "20" },
       { labelIds: "DRAFT", maxResults: "20" },
       { labelIds: "SPAM", maxResults: "20" },

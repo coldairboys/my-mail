@@ -129,7 +129,7 @@
   </div>
 
   <!-- ===== 写邮件弹窗 ===== -->
-  <div class="modal-backdrop" id="composeModal" hidden>
+  <div class="modal-backdrop backdrop-full" id="composeModal" hidden>
     <div class="modal">
       <header class="modal-header">
         <span>新邮件</span>
@@ -161,50 +161,87 @@
   </div>
 
   <!-- ===== 设置弹窗 ===== -->
-  <div class="modal-backdrop" id="settingsModal" hidden>
-    <div class="modal modal-small">
+  <div class="modal-backdrop backdrop-full" id="settingsModal" hidden>
+    <div class="modal sheet">
       <header class="modal-header">
         <span>设置</span>
         <button class="icon-btn" id="btnCloseSettings" data-icon="x"></button>
       </header>
-      <label class="setting-row">
-        <span>界面主题</span>
-        <select id="settingTheme">
-          <option value="auto">跟随系统</option>
-          <option value="light">白天</option>
-          <option value="dark">黑夜</option>
-        </select>
-      </label>
-      <label class="setting-row">
-        <span>显示密度</span>
-        <select id="settingDensity">
-          <option value="comfortable">舒适</option>
-          <option value="compact">紧凑</option>
-        </select>
-      </label>
-      <label class="setting-row">
-        <span>默认翻译目标语言</span>
-        <select id="settingLang">
-          <option value="zh">简体中文</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-      <label class="setting-row">
-        <span id="resetLabel">恢复演示数据</span>
-        <button class="btn-secondary" id="btnResetData">恢复</button>
-      </label>
-      <div class="rules-block">
-        <div class="rules-title">过滤规则（真实邮箱加载时自动执行，本页内生效）</div>
-        <ul class="rules-list" id="rulesList"></ul>
-        <div class="rules-form">
-          <select id="ruleField"><option value="from">发件人含</option><option value="subject">主题含</option></select>
-          <input id="ruleKeyword" type="text" placeholder="关键词" />
-          <select id="ruleAction"><option value="spam">移到垃圾邮件</option><option value="trash">删除</option><option value="archive">归档</option><option value="read">标已读</option><option value="star">加星标</option></select>
-          <button class="btn-secondary" id="btnAddRule">添加</button>
+      <div class="sheet-body">
+        <div class="set-group">外观</div>
+        <label class="setting-row">
+          <span>界面主题</span>
+          <select id="settingTheme">
+            <option value="auto">跟随系统</option>
+            <option value="light">白天</option>
+            <option value="dark">黑夜</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span>显示密度</span>
+          <select id="settingDensity">
+            <option value="comfortable">舒适</option>
+            <option value="compact">紧凑</option>
+          </select>
+        </label>
+        <div class="set-group">阅读与操作</div>
+        <label class="setting-row">
+          <span>打开邮件自动标为已读</span>
+          <input type="checkbox" id="settingAutoRead" />
+        </label>
+        <label class="setting-row">
+          <span>键盘快捷键（j / k 移动 · e 归档 · # 删除 · r 回复）</span>
+          <input type="checkbox" id="settingShortcuts" />
+        </label>
+        <label class="setting-row">
+          <span>收件箱拉取数量</span>
+          <select id="settingFetchCount">
+            <option value="40">40 封</option>
+            <option value="80">80 封</option>
+            <option value="120">120 封</option>
+          </select>
+        </label>
+        <div class="set-group">写信</div>
+        <label class="setting-row">
+          <span>默认发件账号</span>
+          <select id="settingDefaultAccount">
+            <option value="auto">自动（跟随当前视图 / 回复原账号）</option>
+            <option value="gmail">Gmail 主账号</option>
+            <option value="gmail2">Gmail 第二个账号</option>
+            <option value="outlook">Outlook</option>
+          </select>
+        </label>
+        <div class="setting-col">
+          <span>邮件签名（写信、回复时自动附在正文末尾）</span>
+          <textarea id="settingSignature" rows="3" placeholder="例：Yangming&#10;Sent from My Mail"></textarea>
         </div>
+        <div class="set-group">翻译</div>
+        <label class="setting-row">
+          <span>默认翻译目标语言</span>
+          <select id="settingLang">
+            <option value="zh">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <div class="set-group">过滤规则</div>
+        <div class="rules-block">
+          <div class="rules-title">真实邮箱加载时自动执行（发件人/主题含关键词 → 动作），本页内生效</div>
+          <ul class="rules-list" id="rulesList"></ul>
+          <div class="rules-form">
+            <select id="ruleField"><option value="from">发件人含</option><option value="subject">主题含</option></select>
+            <input id="ruleKeyword" type="text" placeholder="关键词" />
+            <select id="ruleAction"><option value="spam">移到垃圾邮件</option><option value="trash">删除</option><option value="archive">归档</option><option value="read">标已读</option><option value="star">加星标</option></select>
+            <button class="btn-secondary" id="btnAddRule">添加</button>
+          </div>
+        </div>
+        <div class="set-group">数据</div>
+        <label class="setting-row">
+          <span id="resetLabel">恢复演示数据</span>
+          <button class="btn-secondary" id="btnResetData">恢复</button>
+        </label>
+        <p class="setting-note" id="settingsNote">演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。</p>
+        <p class="setting-note">My Mail · 清爽开源邮箱（Gmail ×2 + Outlook）· 代码仓库：github.com/coldairboys/my-mail</p>
       </div>
-      <p class="setting-note" id="settingsNote">演示模式：数据只保存在本机浏览器（localStorage），为虚构示例邮件。</p>
-      <p class="setting-note">键盘快捷键：j / k 上下移动 · e 归档 · # 删除 · r 回复 · Esc 返回列表</p>
     </div>
   </div>
 

@@ -54,10 +54,10 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        if (Array.isArray(s.emails)) return Object.assign({ lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable", rules: [] }, s);
+        if (Array.isArray(s.emails)) return Object.assign({ lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable", rules: [], signature: "", defaultAccount: "auto", autoRead: true, shortcuts: true, fetchCount: 40 }, s);
       }
     } catch (e) { /* 存档损坏就重置 */ }
-    return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable", rules: [] };
+    return { emails: structuredClone(SEED_EMAILS), lang: "zh", themeMode: "auto", sortDesc: true, density: "comfortable", rules: [], signature: "", defaultAccount: "auto", autoRead: true, shortcuts: true, fetchCount: 40 };
   }
   const state = loadState();
   let mode = "demo";            // demo = 演示数据 | live = 任一真实账号
@@ -258,7 +258,7 @@
         <button class="chip-btn" id="btnForward">转发</button>
         <button class="chip-btn" id="btnShowImages">${m.showImages === false ? "显示图片" : "隐藏图片"}</button>
       </div>
-      ${m.bodyHtml ? '<div class="mail-html-slot" id="htmlSlot"></div>' : `<div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`}
+      ${m.bodyHtml && !(showTranslated && m.bodyZh) ? '<div class="mail-html-slot" id="htmlSlot"></div>' : `<div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`}
       ${m.attachments && m.attachments.length ? `<div class="attach-block"><div class="attach-title">${ICONS.clip}<span>附件（${m.attachments.length}）</span></div><div class="attach-row">${m.attachments.map((at, i) => `<button class="attach-chip" data-att="${i}"><span class="attach-name">${esc(at.filename || "附件")}</span><span class="attach-size">${fmtSize(at.size)}</span></button>`).join("")}</div></div>` : ""}
       <div class="reading-actions">
         <button class="btn-primary" id="btnReply2">回复</button>
@@ -305,6 +305,7 @@
     };
     $("#btnShowImages").onclick = () => {
       if (!m.bodyHtml) { toast("这封是纯文本邮件，没有图片可切换"); return; }
+      if (showTranslated) showTranslated = false;
       m.showImages = m.showImages === false ? true : false;
       renderReading();
       toast(m.showImages ? "已显示图片" : "已隐藏图片（隐藏可防邮件追踪）");
@@ -350,7 +351,7 @@
         if (selectedId === m.id) renderReading();
       }).catch(() => { m.bodyLoaded = true; });
     }
-    if (m && markRead && m.unread) { m.unread = false; save(); }
+    if (m && markRead && state.autoRead !== false && m.unread) { m.unread = false; save(); }
     document.querySelector(".app").classList.add("reading-open");
     renderNav(); renderList(); renderReading();
   }
@@ -469,8 +470,9 @@
     $("#sidebarBackdrop").hidden = true;
   }
   $("#btnMenu").onclick = () => {
-    document.querySelector(".app").classList.add("sidebar-open");
-    $("#sidebarBackdrop").hidden = false;
+    const app = document.querySelector(".app");
+    const open = app.classList.toggle("sidebar-open");
+    $("#sidebarBackdrop").hidden = !open;
   };
   $("#btnCloseSidebar").onclick = closeSidebar;
   $("#sidebarBackdrop").onclick = closeSidebar;
@@ -601,6 +603,7 @@
     $("#composeAccountRow").hidden = opts.length === 0;
     accSel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
     if (prefill.provider && opts.some(([v]) => v === prefill.provider)) accSel.value = prefill.provider;
+    else if (state.defaultAccount && state.defaultAccount !== "auto" && opts.some(([v]) => v === state.defaultAccount)) accSel.value = state.defaultAccount;
     else if (view === "gmail" || view === "gmail2" || view === "outlook") accSel.value = view;
     const contacts = new Map();
     for (const m of [...state.emails, ...gmailEmails, ...g2Emails, ...outlookEmails]) {
@@ -610,7 +613,7 @@
     $("#contactsList").innerHTML = [...contacts.entries()].map(([addr, name]) => `<option value="${esc(addr)}">${esc(name || "")}</option>`).join("");
     $("#composeTo").value = prefill.to || "";
     $("#composeSubject").value = prefill.subject || "";
-    $("#composeBody").value = prefill.body || "";
+    $("#composeBody").value = (prefill.body || "") + (state.signature ? "\n\n--\n" + state.signature : "");
     $("#composeHint").textContent = "";
     $("#composeModal").hidden = false;
     $("#composeTo").focus();
@@ -632,7 +635,8 @@
   }
   function composeSnapshot(folder) {
     const to = $("#composeTo").value.trim(), subject = $("#composeSubject").value.trim(), bodyText = $("#composeBody").value;
-    if (!to && !subject && !bodyText.trim()) return false;
+    const sigBlock = state.signature ? "\n\n--\n" + state.signature : "";
+    if (!to && !subject && (!bodyText.trim() || bodyText === sigBlock)) return false;
     const t = composeTarget();
     pushMail({ to: to || "（未填收件人）", subject: subject || "（无主题）", snippet: bodyText.trim().slice(0, 60), body: bodyText.split(/\n{2,}/).filter(Boolean), folder, provider: t.provider, bodyLoaded: true }, t.store);
     return true;
@@ -687,12 +691,23 @@
   }
   $("#btnStats").onclick = () => { closeSidebar(); renderStats(); $("#statsModal").hidden = false; };
   $("#btnCloseStats").onclick = () => { $("#statsModal").hidden = true; };
-  $("#btnSettings").onclick = () => { renderRules(); closeSidebar(); $("#settingLang").value = state.lang; $("#settingTheme").value = state.themeMode; const d = $("#settingDensity"); if (d) d.value = state.density || "comfortable"; $("#settingsModal").hidden = false; };
+  $("#btnSettings").onclick = () => { renderRules(); closeSidebar(); $("#settingLang").value = state.lang; $("#settingTheme").value = state.themeMode; const d = $("#settingDensity"); if (d) d.value = state.density || "comfortable";
+    $("#settingAutoRead").checked = state.autoRead !== false;
+    $("#settingShortcuts").checked = state.shortcuts !== false;
+    $("#settingFetchCount").value = String(state.fetchCount || 40);
+    $("#settingDefaultAccount").value = state.defaultAccount || "auto";
+    $("#settingSignature").value = state.signature || "";
+    $("#settingsModal").hidden = false; };
   const densitySel = $("#settingDensity");
   if (densitySel) densitySel.onchange = (e) => { state.density = e.target.value; save(); applyDensity(); };
   function applyDensity() { document.body.classList.toggle("density-compact", state.density === "compact"); }
   $("#btnCloseSettings").onclick = () => { $("#settingsModal").hidden = true; };
   $("#settingLang").onchange = (e) => { state.lang = e.target.value; save(); renderReading(); };
+  $("#settingAutoRead").onchange = (e) => { state.autoRead = e.target.checked; save(); toast(state.autoRead ? "打开邮件会自动标为已读" : "打开邮件不再自动标已读"); };
+  $("#settingShortcuts").onchange = (e) => { state.shortcuts = e.target.checked; save(); toast(state.shortcuts ? "快捷键已开启" : "快捷键已关闭"); };
+  $("#settingFetchCount").onchange = (e) => { state.fetchCount = Number(e.target.value) || 40; window.MyMailFetchCount = state.fetchCount; save(); toast("拉取数量已设为 " + state.fetchCount + " 封（下次打开或重新拉取时生效）"); };
+  $("#settingDefaultAccount").onchange = (e) => { state.defaultAccount = e.target.value; save(); };
+  $("#settingSignature").oninput = (e) => { state.signature = e.target.value; save(); };
   $("#settingTheme").onchange = (e) => { state.themeMode = e.target.value; save(); applyTheme(); };
   $("#btnResetData").onclick = resetData;
   document.querySelectorAll(".modal-backdrop").forEach((bd) => bd.addEventListener("click", (e) => { if (e.target === bd) bd.hidden = true; }));
@@ -706,6 +721,7 @@
     }
     if (!$("#composeModal").hidden || !$("#settingsModal").hidden) return;
     if (e.target.matches("input, textarea, select")) return;
+    if (state.shortcuts === false) return;
     if (e.key === "j") stepSelection(1);
     if (e.key === "k") stepSelection(-1);
     if (e.key === "e") actOnSelected("archive");
@@ -903,6 +919,7 @@
   };
 
   /* ---------------- 启动 ---------------- */
+  window.MyMailFetchCount = state.fetchCount || 40;
   hydrateIcons();
   applyTheme();
   applyDensity();

@@ -129,7 +129,7 @@
     try { const c = await api("messages?$count=true&$top=0", { headers: { ConsistencyLevel: "eventual" } }); total = c["@odata.count"]; } catch (e) {}
     const emails = [];
     const jobs = [
-      ["inbox", "inbox", 40, false],
+      ["inbox", "inbox", window.MyMailFetchCount || 40, false],
       ["sentitems", "sent", 20, false],
       ["drafts", "drafts", 20, false],
       ["junkemail", "spam", 20, false],
