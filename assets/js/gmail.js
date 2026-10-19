@@ -10,8 +10,9 @@
 (function () {
   "use strict";
   const CFG = window.MYMAIL_CONFIG || {};
-  const TOKEN_KEY = "mymail-gmail-token";
-  const EXP_KEY = "mymail-gmail-token-exp";
+  function createGmailClient(suffix, providerName) {
+  const TOKEN_KEY = "mymail-gmail-token" + suffix;
+  const EXP_KEY = "mymail-gmail-token-exp" + suffix;
   let tokenClient = null;
   let gisReady = null;
 
@@ -91,6 +92,7 @@
     u.searchParams.set("scope", CFG.GMAIL_SCOPES);
     u.searchParams.set("include_granted_scopes", "true");
     u.searchParams.set("prompt", "consent");
+    try { sessionStorage.setItem("mymail-login-target", suffix); } catch (e) {}
     window.location.assign(u.toString());
   }
   function consumeRedirectError() {
@@ -195,7 +197,7 @@
     const d = new Date(Number(msg.internalDate || Date.now()));
     const pad = (n) => String(n).padStart(2, "0");
     return {
-      id: msg.id, provider: "gmail", bodyLoaded: true,
+      id: msg.id, provider: providerName, bodyLoaded: true,
       ts: Number(msg.internalDate || 0),
       from: from.name, address: from.address,
       to: header(h, "To") || "我",
@@ -298,5 +300,9 @@
     return r.data || "";
   }
 
-  window.MyMailGmail = { configured, signIn, startRedirectLogin, consumeRedirectToken, consumeRedirectError, getStoredToken, clearToken, loadAll, send, translateParagraphs, searchAll, downloadAttachment };
+  return { configured, signIn, startRedirectLogin, consumeRedirectToken, consumeRedirectError, getStoredToken, clearToken, loadAll, send, translateParagraphs, searchAll, downloadAttachment, suffix, providerName };
+  }
+  window.MyMailGmail = createGmailClient("", "gmail");
+  window.MyMailGmail2 = createGmailClient("2", "gmail2");
+  window.createGmailClient = createGmailClient;
 })();

@@ -62,16 +62,20 @@
   const state = loadState();
   let mode = "demo";            // demo = 演示数据 | live = 任一真实账号
   let view = "demo";            // demo | gmail | outlook | unified（统一收件箱）
-  let gmailEmails = [], outlookEmails = [];
-  let gmailOn = false, outlookOn = false;
-  let gmailProfile = null, outlookProfile = null;
+  let gmailEmails = [], outlookEmails = [], g2Emails = [];
+  let gmailOn = false, outlookOn = false, g2On = false;
+  let gmailProfile = null, outlookProfile = null, g2Profile = null;
   let liveNoticeShown = false;
   const src = () => view === "gmail" ? gmailEmails
+    : view === "gmail2" ? g2Emails
     : view === "outlook" ? outlookEmails
-    : view === "unified" ? [...gmailEmails, ...outlookEmails]
+    : view === "unified" ? [...gmailEmails, ...g2Emails, ...outlookEmails]
     : state.emails;
   const storeOf = (m) => (m && m.provider === "outlook") ? outlookEmails
+    : (m && m.provider === "gmail2") ? g2Emails
     : (m && m.provider === "gmail") ? gmailEmails : state.emails;
+  const svcOf = (provider) => provider === "outlook" ? MS() : provider === "gmail2" ? G2() : G();
+  const liveCount = () => (gmailOn ? 1 : 0) + (g2On ? 1 : 0) + (outlookOn ? 1 : 0);
   let currentFolder = "inbox";
   let currentLabel = null;
   let selectedId = null;
@@ -252,7 +256,7 @@
         <button class="chip-btn primary" id="btnTranslate">${showTranslated ? "↩ 看原文" : "🌐 翻译成" + (state.lang === "zh" ? "中文" : "英文")}</button>
         <button class="chip-btn" id="btnReply">回复</button>
         <button class="chip-btn" id="btnForward">转发</button>
-        <button class="chip-btn" id="btnShowImages">${m.showImages ? "隐藏图片" : "显示图片"}</button>
+        <button class="chip-btn" id="btnShowImages">${m.showImages === false ? "显示图片" : "隐藏图片"}</button>
       </div>
       ${m.bodyHtml ? '<div class="mail-html-slot" id="htmlSlot"></div>' : `<div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`}
       ${m.attachments && m.attachments.length ? `<div class="attach-block"><div class="attach-title">${ICONS.clip}<span>附件（${m.attachments.length}）</span></div><div class="attach-row">${m.attachments.map((at, i) => `<button class="attach-chip" data-att="${i}"><span class="attach-name">${esc(at.filename || "附件")}</span><span class="attach-size">${fmtSize(at.size)}</span></button>`).join("")}</div></div>` : ""}
@@ -267,7 +271,7 @@
         if (mode !== "live" || !at.attachmentId) { toast("演示附件仅作展示"); return; }
         chip.disabled = true;
         try {
-          const data = await (m.provider === "outlook" ? window.MyMailOutlook : window.MyMailGmail).downloadAttachment(m.id, at.attachmentId);
+          const data = await svcOf(m.provider).downloadAttachment(m.id, at.attachmentId);
           const bin = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
           const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
           const url = URL.createObjectURL(new Blob([bytes], { type: at.mimeType || "application/octet-stream" }));
@@ -301,9 +305,9 @@
     };
     $("#btnShowImages").onclick = () => {
       if (!m.bodyHtml) { toast("这封是纯文本邮件，没有图片可切换"); return; }
-      m.showImages = !m.showImages;
+      m.showImages = m.showImages === false ? true : false;
       renderReading();
-      toast(m.showImages ? "已显示图片" : "已隐藏图片（默认隐藏可防邮件追踪）");
+      toast(m.showImages ? "已显示图片" : "已隐藏图片（隐藏可防邮件追踪）");
     };
     const slot = $("#htmlSlot");
     if (slot && m.bodyHtml) {
@@ -312,7 +316,7 @@
       ifr.setAttribute("sandbox", "allow-same-origin allow-popups allow-popups-to-escape-sandbox");
       ifr.setAttribute("title", "邮件内容");
       let html = m.bodyHtml;
-      if (!m.showImages) {
+      if (m.showImages === false) {
         html = html.replace(/<img([^>]*?)\ssrc\s*=/gi, "<img$1 data-blocked-src=")
                    .replace(/\ssrcset\s*=/gi, " data-blocked-srcset=")
                    .replace(/background\s*:\s*url\([^)]*\)/gi, "background:none");
@@ -540,11 +544,12 @@
   };
   $("#btnSearchAll").onclick = async () => {
     const btn = $("#btnSearchAll");
-    btn.disabled = true; btn.textContent = "正在 Gmail 中搜索…";
+    btn.disabled = true; btn.textContent = "正在邮箱中搜索…";
     try {
       let added = 0;
       const jobs = [];
       if (view === "gmail" || view === "unified") jobs.push([G(), gmailEmails]);
+      if (view === "gmail2" || view === "unified") jobs.push([G2(), g2Emails]);
       if (view === "outlook" || view === "unified") jobs.push([window.MyMailOutlook, outlookEmails]);
       for (const [svc, store] of jobs) {
         const found = await svc.searchAll(searchQuery);
@@ -564,7 +569,7 @@
   };
   $("#menuEmptyFolder").onclick = () => {
     const fid = currentFolder;
-    const stores = view === "unified" ? [gmailEmails, outlookEmails] : [src()];
+    const stores = view === "unified" ? [gmailEmails, g2Emails, outlookEmails] : [src()];
     for (const arr of stores) arr.splice(0, arr.length, ...arr.filter((m) => m.folder !== fid));
     selectedId = null; save();
     $("#moreMenu").hidden = true; renderAll();
@@ -574,6 +579,7 @@
     if (view !== "demo") {
       const jobs = [];
       if (gmailOn) jobs.push(enterGmail(false));
+      if (g2On) jobs.push(enterG2(false));
       if (outlookOn) jobs.push(enterOutlook(false));
       Promise.all(jobs).then(() => { updateChrome(); renderAll(); toast("已重新拉取"); });
       return;
@@ -590,13 +596,14 @@
     const accSel = $("#composeAccount");
     const opts = [];
     if (gmailOn) opts.push(["gmail", "Gmail · " + (gmailProfile.emailAddress || "")]);
+    if (g2On) opts.push(["gmail2", "Gmail · " + (g2Profile.emailAddress || "")]);
     if (outlookOn) opts.push(["outlook", "Outlook · " + (outlookProfile.emailAddress || "")]);
     $("#composeAccountRow").hidden = opts.length === 0;
     accSel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
     if (prefill.provider && opts.some(([v]) => v === prefill.provider)) accSel.value = prefill.provider;
-    else if (view === "gmail" || view === "outlook") accSel.value = view;
+    else if (view === "gmail" || view === "gmail2" || view === "outlook") accSel.value = view;
     const contacts = new Map();
-    for (const m of [...state.emails, ...gmailEmails, ...outlookEmails]) {
+    for (const m of [...state.emails, ...gmailEmails, ...g2Emails, ...outlookEmails]) {
       if (m.address) contacts.set(m.address, m.from);
       if (m.to && m.to.includes("@")) contacts.set(m.to, m.to);
     }
@@ -619,6 +626,7 @@
   function composeTarget() {
     const acc = $("#composeAccount") ? $("#composeAccount").value : "";
     if (acc === "gmail") return { store: gmailEmails, provider: "gmail" };
+    if (acc === "gmail2") return { store: g2Emails, provider: "gmail2" };
     if (acc === "outlook") return { store: outlookEmails, provider: "outlook" };
     return { store: state.emails, provider: undefined };
   }
@@ -640,7 +648,7 @@
     if (mode === "live") {
       const btn = $("#btnSend");
       const t = composeTarget();
-      const svc = t.provider === "outlook" ? window.MyMailOutlook : window.MyMailGmail;
+      const svc = svcOf(t.provider);
       btn.disabled = true; btn.textContent = "发送中…";
       try {
         await svc.send({ to, subject, body: bodyText });
@@ -707,6 +715,7 @@
 
   /* ---------------- Gmail 登录 ---------------- */
   const G = () => window.MyMailGmail;
+  const G2 = () => window.MyMailGmail2 || null;
   function setAccountUI(name, mail, initial) {
     $("#accountName").textContent = name;
     $("#accountMail").textContent = mail;
@@ -765,20 +774,24 @@
   function updateChrome() {
     let name = "Yangming", mail = "demo@mymail.app", init = "Y";
     if (view === "gmail" && gmailProfile) { mail = gmailProfile.emailAddress || ""; name = (mail.split("@")[0] || "Gmail"); init = initialOf(mail || "G"); }
+    if (view === "gmail2" && g2Profile) { mail = g2Profile.emailAddress || ""; name = (mail.split("@")[0] || "Gmail"); init = initialOf(mail || "G"); }
     if (view === "outlook" && outlookProfile) { mail = outlookProfile.emailAddress || ""; name = (mail.split("@")[0] || "Outlook"); init = initialOf(mail || "O"); }
-    if (view === "unified") { name = "全部账号"; mail = "Gmail + Outlook"; init = "全"; }
+    if (view === "unified") { name = "全部账号"; mail = [gmailOn && "Gmail", g2On && "Gmail", outlookOn && "Outlook"].filter(Boolean).join(" + "); init = "全"; }
     setAccountUI(name, mail, init);
     $("#btnAuthText").textContent = gmailOn ? "退出 Gmail" : "登录 Gmail";
     $("#btnAuthMsText").textContent = outlookOn ? "退出 Outlook" : "登录 Outlook";
+    $("#btnAuthG2Text").textContent = g2On ? "退出第二个 Gmail" : "添加第二个 Gmail";
+    $("#btnAuthG2").hidden = view === "demo" && !gmailOn && !g2On && !outlookOn;
     mode = view === "demo" ? "demo" : "live";
-    document.body.classList.toggle("live-mode", (gmailOn || outlookOn) && view !== "demo");
+    document.body.classList.toggle("live-mode", (gmailOn || g2On || outlookOn) && view !== "demo");
     const sw = $("#accountSwitch");
-    if (!gmailOn && !outlookOn) sw.hidden = true;
+    if (!gmailOn && !g2On && !outlookOn) sw.hidden = true;
     else {
       sw.hidden = false;
       const chips = [];
-      if (gmailOn && outlookOn) chips.push(["unified", "全部"]);
-      if (gmailOn) chips.push(["gmail", "Gmail"]);
+      if (liveCount() > 1) chips.push(["unified", "全部"]);
+      if (gmailOn) chips.push(["gmail", gmailProfile ? (gmailProfile.emailAddress || "Gmail").split("@")[0] : "Gmail"]);
+      if (g2On) chips.push(["gmail2", g2Profile ? (g2Profile.emailAddress || "Gmail").split("@")[0] : "Gmail 2"]);
       if (outlookOn) chips.push(["outlook", "Outlook"]);
       chips.push(["demo", "演示"]);
       sw.innerHTML = chips.map(([v, t]) => `<button class="account-chip${view === v ? " active" : ""}" data-view="${v}">${t}</button>`).join("");
@@ -786,7 +799,8 @@
     const foot = document.querySelector(".sidebar-footer");
     if (view === "gmail" && gmailProfile) foot.innerHTML = '<span class="sync-dot"></span> 已同步 · ' + (gmailProfile.messagesTotal ? `邮箱共 ${gmailProfile.messagesTotal} 封 · ` : "") + 'Gmail 实时数据（不落盘）';
     else if (view === "outlook" && outlookProfile) foot.innerHTML = '<span class="sync-dot"></span> 已同步 · ' + (outlookProfile.messagesTotal ? `邮箱共 ${outlookProfile.messagesTotal} 封 · ` : "") + 'Outlook 实时数据（不落盘）';
-    else if (view === "unified") foot.innerHTML = '<span class="sync-dot"></span> 已同步 · 统一收件箱（Gmail + Outlook，不落盘）';
+    else if (view === "gmail2" && g2Profile) foot.innerHTML = '<span class="sync-dot"></span> 已同步 · ' + (g2Profile.messagesTotal ? `邮箱共 ${g2Profile.messagesTotal} 封 · ` : "") + 'Gmail 实时数据（不落盘）';
+    else if (view === "unified") foot.innerHTML = '<span class="sync-dot"></span> 已同步 · 统一收件箱（不落盘）';
     else foot.innerHTML = '<span class="sync-dot"></span> 已同步 · 演示数据';
     const sn = $("#settingsNote");
     if (sn) sn.textContent = view === "demo"
@@ -823,6 +837,26 @@
     hideLogin();
     toast("已登录 Outlook：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
   }
+  async function enterG2(switchTo = true) {
+    toast("正在拉取第二个 Gmail…");
+    const { profile, emails } = await G2().loadAll();
+    if (gmailOn && gmailProfile && profile.emailAddress && profile.emailAddress === gmailProfile.emailAddress) {
+      G2().clearToken();
+      toast("这就是你已登录的第一个 Gmail，同一个账号不用加两次");
+      return false;
+    }
+    g2Profile = profile; g2Emails = emails; g2On = true;
+    const hit = applyRules(g2Emails);
+    if (switchTo) { currentFolder = "inbox"; setView("gmail2"); } else { updateChrome(); renderAll(); }
+    hideLogin();
+    toast("已添加第二个 Gmail：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
+    return true;
+  }
+  function doG2Login() {
+    if (!G2() || !G2().configured()) { showLogin("尚未配置 Google Client ID（见 README 的接入步骤）"); return; }
+    toast("正在跳转到 Google 登录（请选择第二个账号）…");
+    G2().startRedirectLogin();
+  }
   function doGoogleLogin() {
     if (!G().configured()) { showLogin("尚未配置 Google Client ID（见 README 的接入步骤）"); return; }
     const btn = $("#btnGoogleLogin");
@@ -846,7 +880,7 @@
     closeSidebar();
     if (!gmailOn) { showLogin(); return; }
     G().clearToken(); gmailOn = false; gmailEmails = []; gmailProfile = null;
-    if (view === "gmail" || view === "unified") setView(outlookOn ? "outlook" : "demo");
+    if (view === "gmail" || view === "unified") setView(g2On ? "gmail2" : outlookOn ? "outlook" : "demo");
     else { updateChrome(); renderAll(); }
     toast("已退出 Gmail");
   };
@@ -854,9 +888,18 @@
     closeSidebar();
     if (!outlookOn) { doMsLogin(); return; }
     MS().clearToken(); outlookOn = false; outlookEmails = []; outlookProfile = null;
-    if (view === "outlook" || view === "unified") setView(gmailOn ? "gmail" : "demo");
+    if (view === "outlook" || view === "unified") setView(gmailOn ? "gmail" : g2On ? "gmail2" : "demo");
     else { updateChrome(); renderAll(); }
     toast("已退出 Outlook");
+  };
+
+  $("#btnAuthG2").onclick = () => {
+    closeSidebar();
+    if (!g2On) { doG2Login(); return; }
+    G2().clearToken(); g2On = false; g2Emails = []; g2Profile = null;
+    if (view === "gmail2" || view === "unified") setView(gmailOn ? "gmail" : outlookOn ? "outlook" : "demo");
+    else { updateChrome(); renderAll(); }
+    toast("已退出第二个 Gmail");
   };
 
   /* ---------------- 启动 ---------------- */
@@ -879,18 +922,26 @@
     if (G().configured()) {
       const oauthErr = G().consumeRedirectError();
       if (oauthErr) { showLogin("Google 授权未完成：" + oauthErr + "（请重新点登录，并在验证页点左侧小字「继续」、权限页点「继续/允许」，不要点『返回到安全网页』）"); return; }
-      if (G().consumeRedirectToken()) {
-        try {
-          await enterGmail(false);
-          setView(outlookOn ? "unified" : "gmail");
-        } catch (e) { showLogin("拉取邮件失败，请重新登录"); }
-        return;
+      let target = "";
+      try { target = sessionStorage.getItem("mymail-login-target") || ""; sessionStorage.removeItem("mymail-login-target"); } catch (e) {}
+      const firstIsG2 = target === "2" && G2();
+      const first = firstIsG2 ? G2() : G();
+      const enterFirst = firstIsG2 ? enterG2 : enterGmail;
+      let entered = false;
+      if (first.consumeRedirectToken()) {
+        try { entered = (await enterFirst(false)) !== false; }
+        catch (e) { showLogin("拉取邮件失败，请重新登录"); return; }
+      } else if (first.getStoredToken()) {
+        try { entered = (await enterFirst(false)) !== false; } catch (e) {}
       }
-      if (G().getStoredToken()) {
-        try {
-          await enterGmail(false);
-          setView(outlookOn ? "unified" : "gmail");
-        } catch (e) { showLogin("会话已过期，请重新登录"); }
+      const other = firstIsG2 ? G() : G2();
+      const enterOther = firstIsG2 ? enterGmail : enterG2;
+      if (other && other.getStoredToken()) {
+        try { entered = (await enterOther(false)) !== false || entered; } catch (e) {}
+      }
+      if (entered) {
+        hideLogin();
+        setView(liveCount() > 1 ? "unified" : gmailOn ? "gmail" : g2On ? "gmail2" : "outlook");
         return;
       }
       if (outlookOn) { setView("outlook"); return; }
