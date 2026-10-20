@@ -7,6 +7,6 @@ window.MYMAIL_CONFIG = {
   MS_CLIENT_ID: "", // ← 在 Microsoft Entra 注册应用后填入（公开标识，PKCE 流程不用密钥）
   GMAIL_SCOPES: [
     "https://www.googleapis.com/auth/gmail.readonly", // 只读：看邮件
-    "https://www.googleapis.com/auth/gmail.send",     // 发送：发邮件（不含删除/改标签权限）
+    "https://www.googleapis.com/auth/gmail.send", // 发送：发邮件（不含删除/改标签权限）
   ].join(" "),
 };

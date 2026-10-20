@@ -1,3 +1,7 @@
 .DS_Store
 *.log
 node_modules/
+dist/
+
+# 本地验证产物（截图、临时脚本），不提交
+.review*/

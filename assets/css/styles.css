@@ -1,8 +1,87 @@
-/* My Mail · 清爽三栏邮件界面（v2）
+/* My Mail · 清爽三栏邮件界面（v4）
    全屏布局、明暗双主题（data-theme 由 JS 按 手动选择/系统偏好 决定）、
-   手机端抽屉侧边栏 + 阅读页全屏覆盖 + 列表左滑删除。 */
+   手机端抽屉侧边栏 + 阅读页全屏覆盖 + 列表左滑删除。
+
+   ── 设计 token 说明（v4 收敛） ──────────────────────────────
+   1. 字号：--fs-xs/sm/base/md/lg/xl 共 6 档，全部 UI 文字只用这 6 档。
+      展示型大字（登录页标题、空状态图标）用 calc() 从 --fs-xl 派生，
+      不再引入新的 rem 值，避免字号表继续膨胀。
+   2. 间距：--space-* 以 4px 为栅格（1=4px … 8=40px）。
+      控件内部还保留 2px 半步（--space-0/1-5/2-5），因为按钮与列表行的
+      垂直内边距若强行并到 4px 栅格，会把 32px 控件撑到 34px 或压到 26px，
+      反而破坏点击区与行高的一致性；半步只用于控件内部，不用于版面间距。
+   3. 圆角：--radius-sm/md/lg/pill 四档。仅 kbd 键帽 5px、标签色点 3px
+      作为有意保留的例外（见对应注释），因为它们不是"容器圆角"。
+   4. 图标：--icon(18px) 主 / --icon-sm(16px) 次级 / --icon-lg(22px) 大动作，
+      不再出现 17px、19px 这类零散值。
+   5. 颜色：所有出现在深色模式下的颜色都走变量。少数刻意不跟随主题的
+      （邮件 iframe 白底、危险色底上的白字）在规则旁注明原因。 */
 
 :root {
+  /* ---- 字体 ---- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ---- 字号：6 档 type scale ---- */
+  --fs-xs: 0.75rem; /* 11.25px 微标签 / 时间 / 计数 */
+  --fs-sm: 0.8125rem; /* 12.19px 次级说明 */
+  --fs-base: 0.875rem; /* 13.13px 列表行、导航、按钮默认 */
+  --fs-md: 0.9375rem; /* 14.06px 强调正文、设置项 */
+  --fs-lg: 1.0625rem; /* 15.94px 列表标题、搜索清除 */
+  --fs-xl: 1.25rem; /* 18.75px 阅读标题、星标 */
+
+  /* ---- 行高 ---- */
+  --lh-tight: 1.25;
+  --lh-heading: 1.4;
+  --lh-base: 1.5;
+  --lh-relaxed: 1.65;
+  --lh-loose: 1.75;
+
+  /* ---- 间距：4px 栅格 + 控件内 2px 半步 ---- */
+  --space-0: 2px; /* 半步：控件内部微调 */
+  --space-1: 4px;
+  --space-1-5: 6px; /* 半步：控件内部微调 */
+  --space-2: 8px;
+  --space-2-5: 10px; /* 半步：控件内部微调 */
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* ---- 图标尺寸 ---- */
+  --icon: 18px;
+  --icon-sm: 16px;
+  --icon-lg: 22px;
+
+  /* ---- 控件与行宽 ---- */
+  --control-size: 32px; /* 图标按钮的方形点击区 */
+  --content-width: 720px; /* 全屏页（设置/写信）的可读行宽 */
+  --reading-width: 820px; /* 阅读区正文的可读行宽 */
+  --sidebar-collapsed-width: 64px; /* 桌面端折叠后的图标栏宽度 */
+
+  /* ---- 动效时长 ---- */
+  --dur-fast: 0.18s;
+  --dur-base: 0.22s;
+
+  /* ---- 阴影 ---- */
+  --shadow: 0 16px 48px rgba(16, 24, 40, 0.18);
+  --shadow-control: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-soft: 0 1px 3px rgba(16, 24, 40, 0.12);
+  --shadow-toast: 0 8px 28px rgba(0, 0, 0, 0.25);
+  --shadow-fab: 0 8px 24px rgba(20, 60, 140, 0.35);
+  --shadow-logo: 0 10px 30px rgba(30, 90, 200, 0.35);
+
+  /* ---- 颜色 ---- */
   --bg: #ffffff;
   --panel: #ffffff;
   --sidebar-bg: #f7f8fa;
@@ -20,8 +99,35 @@
   --body-bg: #fafbfc;
   --input-bg: #f7f8fa;
   --modal-bg: #ffffff;
-  --shadow: 0 16px 48px rgba(16, 24, 40, 0.18);
+  --panel-2: #f4f6f9;
   --danger: #e5484d;
+
+  /* 落在 accent 底色上的前景色（暗色主题下 accent 变浅，白字对比度不足，
+     故暗色用近黑前景，见 [data-theme="dark"]） */
+  --on-accent: #ffffff;
+  --on-accent-strong: rgba(255, 255, 255, 0.92);
+  --on-accent-soft: rgba(255, 255, 255, 0.78);
+  --on-accent-chip-bg: rgba(255, 255, 255, 0.22);
+  --on-accent-chip-fg: rgba(255, 255, 255, 0.85);
+  /* 头像前景固定白字：JS 按发件人哈希取背景色（任意色相），白字最稳 */
+  --avatar-fg: #ffffff;
+
+  --star-idle: #cfd4dc; /* 未加星标 */
+  --star-active: #f5a623; /* 已加星标（原 #f7b500 已并入） */
+  --success: #28c840; /* 同步状态点 */
+  --danger-bg: #fdf0ec; /* 「重要」分类 chip 底色 */
+  --danger-fg: #d93025;
+  --overlay: rgba(15, 20, 32, 0.42); /* 弹窗遮罩 */
+  --overlay-strong: rgba(10, 14, 22, 0.4); /* 抽屉遮罩 */
+  --toast-bg: rgba(24, 28, 38, 0.94);
+  --toast-fg: #ffffff;
+  --toast-action: #8dbcff;
+
+  /* Google / Outlook 官方按钮：亮色按官方白底，暗色改用面板色（见 dark） */
+  --google-bg: #ffffff;
+  --google-fg: #3c4043;
+  --google-border: #dadce0;
+
   color-scheme: light;
   font-size: 15px;
 }
@@ -44,440 +150,2026 @@
   --body-bg: #20232a;
   --input-bg: #22252c;
   --modal-bg: #1d2026;
+  --panel-2: #23262d;
+  --danger: #e5484d;
   --shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  /* accent 在暗色下是亮蓝 #5aa2ff，白字对比度仅 ~2.2:1，改用近黑前景 */
+  --on-accent: #0d1117;
+  --on-accent-strong: rgba(13, 17, 23, 0.92);
+  --on-accent-soft: rgba(13, 17, 23, 0.75);
+  --on-accent-chip-bg: rgba(13, 17, 23, 0.16);
+  --on-accent-chip-fg: rgba(13, 17, 23, 0.85);
+
+  --star-idle: #4a4f59;
+  --danger-bg: rgba(217, 48, 37, 0.18);
+  --danger-fg: #ff8a80;
+  --overlay: rgba(0, 0, 0, 0.58);
+  --overlay-strong: rgba(0, 0, 0, 0.52);
+  --toast-bg: rgba(40, 44, 54, 0.96);
+
+  /* 暗色下不再用纯白底：跟随面板色 + 边框，避免登录页出现刺眼的白色按钮 */
+  --google-bg: var(--panel);
+  --google-fg: var(--text);
+  --google-border: var(--border);
+
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  height: 100%;
+}
+
+/* [hidden] 兜底：很多组件用 display:flex / inline-flex 覆盖了 UA 的 display:none，
+   导致「添加第二个 Gmail」「发件账号」「清空当前文件夹」等带 hidden 的元素仍然显示。
+   统一在样式表顶部用 !important 兜底，避免每个组件各自补规则。 */
+[hidden] {
+  display: none !important;
+}
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
 
-button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
-input, textarea, select { font: inherit; color: inherit; }
-ul { list-style: none; }
-[data-icon] { display: inline-flex; align-items: center; justify-content: center; flex: none; }
-[data-icon] svg { width: 19px; height: 19px; display: block; }
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+ul {
+  list-style: none;
+}
+[data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+/* 主图标尺寸：全表统一 18px，次级用 --icon-sm，大动作用 --icon-lg */
+[data-icon] svg {
+  width: var(--icon);
+  height: var(--icon);
+  display: block;
+}
 
 /* ---------- 整体布局：铺满全屏 ---------- */
+/* --list-w 由 JS 在拖拽分隔条时写入，默认 360px；--sidebar-w 固定 236px。
+   折叠态沿用 --sidebar-collapsed-width，中栏宽度保持用户拖拽后的值。 */
 .app {
-  width: 100vw; height: 100dvh;
+  width: 100vw;
+  height: 100dvh;
   display: grid;
-  grid-template-columns: 236px 360px 1fr;
+  grid-template-columns: var(--sidebar-w, 236px) var(--list-w, 360px) 1fr;
   background: var(--bg);
+  /* 折叠/展开左栏时列宽平滑过渡；Chromium 对可插值的 px 轨道支持过渡，
+     不支持的浏览器会直接跳变，观感上仍是「宽度变化」而非生硬重排。 */
+  transition: grid-template-columns var(--dur-base) ease;
+}
+/* 拖拽过程中关闭过渡，否则列宽会「追着鼠标跑」显得粘滞 */
+.app.resizing {
+  transition: none;
+  cursor: col-resize;
+  user-select: none;
 }
 
 /* ---------- 左栏 ---------- */
 .sidebar {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  padding: 16px 12px 12px;
-  display: flex; flex-direction: column; gap: 6px;
+  padding: var(--space-4) var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
   overflow-y: auto;
+  /* 折叠时宽度变化不产生横向抖动 */
+  transition: padding var(--dur-base) ease;
 }
-.sidebar-close { display: none; margin-left: auto; }
+.sidebar-close {
+  margin-left: auto;
+}
 .sidebar-backdrop {
-  position: fixed; inset: 0; background: rgba(10, 14, 22, 0.4); z-index: 44;
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-strong);
+  z-index: 44;
 }
-.sidebar-backdrop[hidden] { display: none; }
+.sidebar-backdrop[hidden] {
+  display: none;
+}
 
-.account { display: flex; align-items: center; gap: 10px; padding: 2px 6px 10px; }
-.avatar {
-  width: 34px; height: 34px; border-radius: 9px; flex: none;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 600; font-size: 0.95rem; background: var(--accent);
+/* 桌面端「收起侧栏」折叠态：收成 64px 图标栏。
+   只在 >860px 生效——移动端用的是抽屉（.sidebar-open），语义不同，
+   写在这里会与抽屉的 transform 打架（窄屏段已单独兜底）。
+
+   设计要点：
+   1. 折叠后侧栏仍占 64px，图标全部保留并居中，只隐藏文字，
+      所以不存在「收成 0 宽后按钮跟着消失、无法再展开」的死锁；
+   2. 不设 opacity:0 / pointer-events:none / translateX(-100%)，
+      图标因此始终可见可点，文件夹、写邮件等入口保持可用；
+   3. 列宽过渡靠 .app 上的 transition: grid-template-columns 实现。 */
+@media (min-width: 861px) {
+  .app.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-collapsed-width) var(--list-w, 360px) 1fr;
+  }
+  .app.sidebar-collapsed .sidebar {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  /* —— 隐藏纯文字块，保留图标 —— */
+  .app.sidebar-collapsed .account-text,
+  .app.sidebar-collapsed .nav-title,
+  .app.sidebar-collapsed .sidebar-footer,
+  .app.sidebar-collapsed .account-switch {
+    display: none;
+  }
+
+  /* —— 按钮只留图标：font-size:0 隐去文字节点，svg 尺寸独立不受影响 —— */
+  .app.sidebar-collapsed .btn-compose,
+  .app.sidebar-collapsed .btn-ghost {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+    font-size: 0;
+  }
+  .app.sidebar-collapsed .btn-compose [data-icon] svg,
+  .app.sidebar-collapsed .btn-ghost [data-icon] svg {
+    width: var(--icon);
+    height: var(--icon);
+  }
+
+  /* —— 导航项只留图标：名称与计数隐藏 —— */
+  /* 折叠后 li 里只剩一个图标，若不限尺寸，hover 底色会随内容缩成一条窄条，
+     看不出是「可点的方块」。这里统一成 32×32 的方形点击区并居中，
+     配合 .nav-list li 原有的 --radius-sm 圆角，hover/active 底色即圆角方块。 */
+  .app.sidebar-collapsed .nav-list li {
+    justify-content: center;
+    width: var(--control-size);
+    height: var(--control-size);
+    padding: 0;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .app.sidebar-collapsed .nav-list li > span:not(.nav-icon):not(.label-dot) {
+    display: none;
+  }
+  .app.sidebar-collapsed .nav-list .nav-count {
+    display: none;
+  }
+  .app.sidebar-collapsed .nav-list .label-dot {
+    margin: 0;
+  }
+  /* 折叠态下 hover 与选中态都用 --hover / --nav-active 的圆角方块，
+     与展开态保持同一套视觉语言（颜色变量一致，只是尺寸收紧） */
+  .app.sidebar-collapsed .nav-list li:hover {
+    background: var(--hover);
+  }
+  .app.sidebar-collapsed .nav-list li.active {
+    background: var(--nav-active);
+  }
+
+  /* —— 账号行竖排：头像在上、展开按钮在下，按钮风格与 .icon-btn 一致 —— */
+  .app.sidebar-collapsed .account {
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .app.sidebar-collapsed .account .avatar-account {
+    width: var(--control-size);
+    height: var(--control-size);
+  }
+  .app.sidebar-collapsed .sidebar-close {
+    margin-left: 0;
+  }
+
+  /* 折叠态下按钮不要贴边，左右各留 4px。
+     注意这里不要包含 .nav-list li：li 用的是 margin auto 居中（32px 方形），
+     若在这里改成 4px 固定边距会把图标挤偏。 */
+  .app.sidebar-collapsed .btn-ghost,
+  .app.sidebar-collapsed .btn-compose {
+    margin-left: var(--space-1);
+    margin-right: var(--space-1);
+  }
 }
-.account-name { font-weight: 600; font-size: 0.93rem; line-height: 1.25; }
-.account-mail { color: var(--text-2); font-size: 0.78rem; }
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: var(--space-0) var(--space-1-5) var(--space-2-5);
+}
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--avatar-fg);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  background: var(--accent);
+}
+/* 侧栏账号头像底色是 --accent，跟随主题用 --on-accent 前景；
+   阅读区头像由 JS 内联任意色相，仍用固定白字（--avatar-fg） */
+.avatar-account {
+  color: var(--on-accent);
+}
+.account-name {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  line-height: var(--lh-tight);
+}
+.account-mail {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
 
 .btn-compose {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
-  padding: 7px 10px; text-align: left; font-size: 0.9rem;
-  display: flex; align-items: center; gap: 8px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1-5) var(--space-2-5);
+  text-align: left;
+  font-size: var(--fs-base);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-shadow: var(--shadow-control);
 }
-.btn-compose:hover { background: var(--hover); }
-.btn-compose [data-icon] svg { width: 16px; height: 16px; }
+.btn-compose:hover {
+  background: var(--hover);
+}
+.btn-compose [data-icon] svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
 .btn-ghost {
-  padding: 6px 10px; text-align: left; border-radius: 9px; font-size: 0.9rem;
-  display: flex; align-items: center; gap: 8px;
+  padding: var(--space-1-5) var(--space-2-5);
+  text-align: left;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-.btn-ghost:hover { background: var(--hover); }
-.btn-ghost [data-icon] svg { width: 16px; height: 16px; }
+.btn-ghost:hover {
+  background: var(--hover);
+}
+.btn-ghost [data-icon] svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
 
-.nav-section { margin-top: 12px; }
-.nav-title { color: var(--text-3); font-size: 0.74rem; padding: 0 10px 5px; letter-spacing: 0.04em; }
+.nav-section {
+  margin-top: var(--space-3);
+}
+.nav-title {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  padding: 0 var(--space-2-5) var(--space-1);
+  letter-spacing: 0.04em;
+}
 .nav-list li {
-  display: flex; align-items: center; gap: 9px;
-  padding: 5.5px 10px; border-radius: 8px; cursor: pointer;
-  font-size: 0.9rem; white-space: nowrap;
-}
-.nav-list li:hover { background: var(--hover); }
-.nav-list li.active { background: var(--nav-active); font-weight: 600; }
-.nav-list .nav-icon { width: 18px; color: var(--text-2); display: inline-flex; }
-.nav-list .nav-icon svg { width: 17px; height: 17px; }
-.nav-list .nav-count { margin-left: auto; color: var(--text-2); font-size: 0.8rem; }
-.label-dot { width: 8px; height: 8px; border-radius: 3px; flex: none; margin: 0 5px; }
-
-.sidebar-footer { margin-top: auto; padding: 10px; color: var(--text-3); font-size: 0.78rem; display: flex; align-items: center; gap: 7px; }
-.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #28c840; }
-
-/* ---------- 中栏 ---------- */
-.list-pane { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; position: relative; background: var(--list-bg); }
-.list-header { display: flex; align-items: center; gap: 4px; padding: 14px 14px 8px 16px; }
-.list-header h1 { font-size: 1.04rem; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.list-tools { display: flex; gap: 2px; align-items: center; }
-.menu-btn { display: none; }
-
-.icon-btn {
-  width: 32px; height: 32px; border-radius: 8px; color: var(--text-2);
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.icon-btn svg { width: 19px; height: 19px; }
-.icon-btn:hover { background: var(--hover); color: var(--text); }
-.icon-btn.on { background: var(--accent-soft); color: var(--accent); }
-.icon-btn:disabled { opacity: 0.32; pointer-events: none; }
-
-.menu-wrap { position: relative; }
-.dropdown {
-  position: absolute; right: 0; top: 38px; z-index: 60;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: var(--shadow); padding: 6px; min-width: 188px;
-}
-.dropdown[hidden] { display: none; }
-.dropdown button {
-  display: flex; align-items: center; width: 100%;
-  padding: 8px 10px; border-radius: 8px; text-align: left; font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2-5);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--fs-base);
   white-space: nowrap;
 }
-.dropdown button:hover { background: var(--hover); }
-.dropdown button.checked::after { content: "✓"; margin-left: auto; color: var(--accent); font-weight: 700; padding-left: 14px; }
-.dropdown button.danger { color: var(--danger); }
+.nav-list li:hover {
+  background: var(--hover);
+}
+.nav-list li.active {
+  background: var(--nav-active);
+  font-weight: 600;
+}
+.nav-list .nav-icon {
+  width: var(--icon);
+  color: var(--text-2);
+  display: inline-flex;
+}
+.nav-list .nav-icon svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.nav-list .nav-count {
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+/* 标签色点是有意保留的小圆角方块（3px），不是容器圆角，故不走 --radius-* */
+.label-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  flex: none;
+  margin: 0 var(--space-1);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: var(--space-2-5);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--success);
+}
+
+/* ---------- 中栏 ---------- */
+.list-pane {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  background: var(--list-bg);
+}
+.list-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+.list-header h1 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-tools {
+  display: flex;
+  gap: var(--space-0);
+  align-items: center;
+}
+
+/* 三横按钮只在移动端抽屉模式出现。
+   注意：这里必须用 .icon-btn.menu-btn 提高特异性，否则会被下面
+   .icon-btn { display: inline-flex } 按「同特异性、后定义者胜」覆盖，
+   导致桌面端错误地显示一个点了没反应的三横按钮。 */
+.icon-btn.menu-btn {
+  display: none;
+}
+
+.icon-btn {
+  width: var(--control-size);
+  height: var(--control-size);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn svg {
+  width: var(--icon);
+  height: var(--icon);
+}
+.icon-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.icon-btn.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.icon-btn:disabled {
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.menu-wrap {
+  position: relative;
+}
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 38px; /* 对齐 32px 图标按钮 + 上下内边距，非间距 token */
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: var(--space-1-5);
+  min-width: 188px;
+}
+.dropdown[hidden] {
+  display: none;
+}
+.dropdown button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2) var(--space-2-5);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--fs-base);
+  white-space: nowrap;
+}
+.dropdown button:hover {
+  background: var(--hover);
+}
+.dropdown button.checked::after {
+  content: "✓";
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+  padding-left: var(--space-3);
+}
+.dropdown button.danger {
+  color: var(--danger);
+}
 
 .search-box {
-  margin: 2px 14px 10px; display: flex; align-items: center; gap: 6px;
-  background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; padding: 0 9px;
+  margin: var(--space-0) var(--space-4) var(--space-2-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-2-5);
 }
-.search-box input { flex: 1; border: none; outline: none; background: none; padding: 7px 0; font-size: 0.88rem; min-width: 0; }
-.search-icon { color: var(--text-3); }
-.search-icon svg { width: 16px; height: 16px; }
-.search-clear { color: var(--text-3); font-size: 1.05rem; line-height: 1; }
+.search-box input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  padding: var(--space-1-5) 0;
+  font-size: var(--fs-base);
+  min-width: 0;
+}
+.search-icon {
+  color: var(--text-3);
+}
+.search-icon svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.search-clear {
+  color: var(--text-3);
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
 
-.mail-list { overflow-y: auto; flex: 1; overscroll-behavior: contain; }
+.mail-list {
+  overflow-y: auto;
+  flex: 1;
+  overscroll-behavior: contain;
+}
 
 /* 列表项：外层负责左滑背景，内层是可见内容 */
-.mail-item { position: relative; overflow: hidden; border-bottom: 1px solid var(--border-soft); }
+.mail-item {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-soft);
+}
 .swipe-bg {
-  position: absolute; inset: 0; background: var(--danger); color: #fff;
-  display: flex; align-items: center; justify-content: flex-end; padding-right: 24px;
+  position: absolute;
+  inset: 0;
+  /* 危险色底上的白字：--danger 两套主题同值，白字对比度始终达标，故不走 --on-accent */
+  background: var(--danger);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-6);
   opacity: 0;
 }
-.swipe-bg svg { width: 22px; height: 22px; }
+.swipe-bg svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
 .mail-item-inner {
-  position: relative; background: var(--list-bg);
-  padding: 11px 16px 11px 22px; cursor: pointer;
+  position: relative;
+  background: var(--list-bg);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  cursor: pointer;
   touch-action: pan-y;
 }
-.mail-item-inner.anim { transition: transform 0.18s ease; }
-.mail-item-inner:hover { background: var(--hover); }
-.mail-item.selected .mail-item-inner { background: var(--accent); color: #fff; }
-.mail-item.selected .mail-subject { color: rgba(255, 255, 255, 0.92); }
-.mail-item.selected .mail-snippet, .mail-item.selected .mail-date { color: rgba(255, 255, 255, 0.78); }
-.mail-item.selected .mail-tag { background: rgba(255, 255, 255, 0.22); color: rgba(255, 255, 255, 0.85); }
-.mail-item.selected .unread-dot { background: #fff; }
+.mail-item-inner.anim {
+  transition: transform var(--dur-fast) ease;
+}
+.mail-item-inner:hover {
+  background: var(--hover);
+}
+.mail-item.selected .mail-item-inner {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.mail-item.selected .mail-subject {
+  color: var(--on-accent-strong);
+}
+.mail-item.selected .mail-snippet,
+.mail-item.selected .mail-date {
+  color: var(--on-accent-soft);
+}
+.mail-item.selected .mail-tag {
+  background: var(--on-accent-chip-bg);
+  color: var(--on-accent-chip-fg);
+}
+.mail-item.selected .unread-dot {
+  background: var(--on-accent);
+}
 
-.mail-row-1 { display: flex; align-items: baseline; gap: 7px; }
-.unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; position: absolute; left: 9px; top: 19px; }
-.mail-from { font-weight: 500; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mail-item.unread .mail-from { font-weight: 700; }
-.mail-date { margin-left: auto; color: var(--text-2); font-size: 0.78rem; flex: none; }
-.mail-subject { font-size: 0.89rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mail-item.unread .mail-subject { font-weight: 600; }
-.mail-snippet { color: var(--text-2); font-size: 0.84rem; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mail-tag { display: inline-block; margin-left: 7px; padding: 0.5px 7px; border-radius: 6px; background: var(--tag-bg); color: var(--text-2); font-size: 0.72rem; vertical-align: 1px; }
-.mail-star { color: #f5a623; margin-left: 5px; font-size: 0.8rem; }
+.mail-row-1 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+}
+.unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  flex: none;
+  position: absolute;
+  left: var(--space-2);
+  top: var(--space-5);
+}
+.mail-from {
+  font-weight: 500;
+  font-size: var(--fs-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mail-item.unread .mail-from {
+  font-weight: 700;
+}
+.mail-date {
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  flex: none;
+}
+.mail-subject {
+  font-size: var(--fs-base);
+  margin-top: var(--space-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mail-item.unread .mail-subject {
+  font-weight: 600;
+}
+.mail-snippet {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  margin-top: 1px; /* 微调基线，1px 比 2px 更贴合 18px 行盒 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mail-tag {
+  display: inline-block;
+  margin-left: var(--space-1-5);
+  padding: var(--space-0) var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--tag-bg);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  vertical-align: 1px;
+}
 
-.list-empty { padding: 40px 0; text-align: center; color: var(--text-3); }
+.list-empty {
+  padding: var(--space-8) 0;
+  text-align: center;
+  color: var(--text-3);
+}
 
 .fab {
   display: none;
-  position: absolute; right: 18px; bottom: calc(20px + env(safe-area-inset-bottom));
-  width: 56px; height: 56px; border-radius: 50%;
-  background: var(--accent); color: #fff; box-shadow: 0 8px 24px rgba(20, 60, 140, 0.35);
-  align-items: center; justify-content: center; z-index: 20;
+  position: absolute;
+  right: var(--space-4);
+  bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-fab);
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
 }
-.fab svg { width: 22px; height: 22px; }
+.fab svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
 
 /* ---------- 右栏 ---------- */
-.reading-pane { display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
-.reading-toolbar {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 9px 14px; border-bottom: 1px solid var(--border);
+.reading-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
 }
-.toolbar-left, .toolbar-right { display: flex; gap: 2px; align-items: center; }
-.back-btn { display: none; }
-.page-pos { color: var(--text-2); font-size: 0.82rem; margin-left: 5px; white-space: nowrap; }
+.reading-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  gap: var(--space-0);
+  align-items: center;
+}
+.back-btn {
+  display: none;
+}
+.page-pos {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  margin-left: var(--space-1);
+  white-space: nowrap;
+}
 
-.reading-content { overflow-y: auto; padding: 26px 38px 40px; flex: 1; }
-.reading-title-row { display: flex; align-items: flex-start; gap: 12px; }
-.reading-title { font-size: 1.28rem; font-weight: 600; line-height: 1.4; flex: 1; }
-.star-btn { font-size: 1.25rem; color: #cfd4dc; padding: 2px; }
-[data-theme="dark"] .star-btn { color: #4a4f59; }
-.star-btn.starred { color: #f5a623; }
+.reading-content {
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  flex: 1;
+}
 
-.mail-meta { display: flex; gap: 11px; align-items: center; margin-top: 18px; }
-.mail-meta .avatar { border-radius: 50%; width: 38px; height: 38px; }
-.meta-from { font-weight: 600; font-size: 0.93rem; }
-.meta-addr { color: var(--text-2); font-weight: 400; font-size: 0.85rem; margin-left: 6px; }
-.meta-unsub { color: var(--text-3); font-size: 0.8rem; margin-left: 8px; cursor: pointer; }
-.meta-to { color: var(--text-2); font-size: 0.84rem; margin-top: 1px; }
-.meta-date { margin-left: auto; color: var(--text-2); font-size: 0.85rem; flex: none; }
+/* 阅读区正文居中：宽屏（如 1440px）下阅读栏可达 844px 以上，
+   若正文贴左会出现「左侧紧、右侧大片空白」的失衡感。
+   这里把正文各块统一限宽 820px 并左右 auto 居中。
+   注意：只设 margin-left/right，不要写 margin: 0 auto，
+   否则会抹掉 .mail-body 的 margin-top 上间距。 */
+.reading-content > .reading-title-row,
+.reading-content > .mail-meta,
+.reading-content > .mail-actions-row,
+.reading-content > .mail-body,
+.reading-content > .mail-html-slot,
+.reading-content > .attach-block {
+  max-width: var(--reading-width);
+  margin-left: auto;
+  margin-right: auto;
+}
 
-.mail-actions-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
-.chip-btn { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 5px 12px; font-size: 0.83rem; }
-.chip-btn:hover { background: var(--hover); }
-.chip-btn.primary { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
+.reading-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.reading-title {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: var(--lh-heading);
+  flex: 1;
+}
+.star-btn {
+  font-size: var(--fs-xl);
+  color: var(--star-idle);
+  padding: var(--space-0);
+}
+.star-btn.starred {
+  color: var(--star-active);
+}
 
-.mail-body { margin-top: 20px; background: var(--body-bg); border-radius: 12px; padding: 30px 34px; line-height: 1.75; font-size: 0.96rem; color: var(--text); }
-.mail-body p { margin-bottom: 14px; }
-.mail-body p:last-child { margin-bottom: 0; }
+.mail-meta {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-4);
+}
+.mail-meta .avatar {
+  border-radius: var(--radius-pill);
+  width: 38px;
+  height: 38px;
+}
+.meta-from {
+  font-weight: 600;
+  font-size: var(--fs-md);
+}
+.meta-addr {
+  color: var(--text-2);
+  font-weight: 400;
+  font-size: var(--fs-sm);
+  margin-left: var(--space-1-5);
+}
+.meta-unsub {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  margin-left: var(--space-2);
+  cursor: pointer;
+}
+.meta-to {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  margin-top: 1px;
+}
+.meta-date {
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  flex: none;
+}
 
-.reading-actions { display: flex; gap: 10px; margin-top: 22px; }
-.btn-primary { background: var(--accent); color: #fff; border-radius: 9px; padding: 8px 20px; font-weight: 600; }
-.btn-primary:hover { filter: brightness(1.07); }
-.btn-secondary { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 8px 16px; }
-.btn-secondary:hover { background: var(--hover); }
+.mail-actions-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+.chip-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-sm);
+}
+.chip-btn:hover {
+  background: var(--hover);
+}
+.chip-btn.primary {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 600;
+}
 
-.reading-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-3); gap: 10px; }
-.reading-empty[hidden] { display: none; }
-.reading-empty-icon { font-size: 2.4rem; }
+.mail-body {
+  margin-top: var(--space-5);
+  background: var(--body-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7);
+  line-height: var(--lh-loose);
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.mail-body p {
+  margin-bottom: var(--space-3);
+}
+.mail-body p:last-child {
+  margin-bottom: 0;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-5);
+  font-weight: 600;
+}
+.btn-primary:hover {
+  filter: brightness(1.07);
+}
+.btn-secondary {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+}
+.btn-secondary:hover {
+  background: var(--hover);
+}
+
+.reading-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  gap: var(--space-2-5);
+}
+.reading-empty[hidden] {
+  display: none;
+}
+.reading-empty-icon {
+  font-size: calc(var(--fs-xl) * 2); /* 由 6 档字号派生的展示型大字 */
+}
 
 /* ---------- 弹窗 ---------- */
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(15, 20, 32, 0.42);
-  display: flex; align-items: center; justify-content: center; z-index: 80; padding: 16px;
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: var(--space-4);
 }
-.modal-backdrop[hidden] { display: none; }
+.modal-backdrop[hidden] {
+  display: none;
+}
 .modal {
-  background: var(--modal-bg); border-radius: 14px; width: min(620px, 100%);
-  box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column;
-  max-height: calc(100dvh - 32px);
+  background: var(--modal-bg);
+  border-radius: var(--radius-lg);
+  width: min(620px, 100%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--space-7));
 }
-.modal-small { width: min(440px, 100%); padding-bottom: 18px; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-weight: 600; border-bottom: 1px solid var(--border); }
-.field { display: flex; align-items: center; gap: 10px; padding: 9px 18px; border-bottom: 1px solid var(--border-soft); }
-.field span { color: var(--text-2); font-size: 0.88rem; width: 52px; flex: none; }
-.field input { flex: 1; border: none; outline: none; min-width: 0; background: none; }
-.compose-body { border: none; outline: none; resize: vertical; min-height: 200px; padding: 14px 18px; line-height: 1.65; background: none; }
-.modal-footer { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--border); }
-.modal-hint { color: var(--text-3); font-size: 0.8rem; flex: 1; }
+.modal-small {
+  width: min(440px, 100%);
+  padding-bottom: var(--space-4);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+}
+/* 标签固定宽度且不换行：「发件账号」四个字在 52px 里会被挤成两行。
+   60px 是按最长标签测出来的版面宽度，不参与间距栅格。 */
+.field span {
+  color: var(--text-2);
+  font-size: var(--fs-base);
+  width: 60px;
+  flex: none;
+  white-space: nowrap;
+}
+.field input {
+  flex: 1;
+  border: none;
+  outline: none;
+  min-width: 0;
+  background: none;
+}
+.compose-body {
+  border: none;
+  outline: none;
+  resize: vertical;
+  min-height: 200px;
+  padding: var(--space-3) var(--space-4);
+  line-height: var(--lh-relaxed);
+  background: none;
+}
+/* 正文输入区与上方「收件人 / 主题」字段同宽并居中，否则在宽屏上正文贴左、字段居中，视觉错位 */
+#composeBody.compose-body {
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-5);
+}
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.modal-hint {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  flex: 1;
+}
 
-.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 18px 0; font-size: 0.92rem; gap: 10px; }
-.setting-row select { border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; background: var(--panel); }
-.setting-note { padding: 14px 18px 0; color: var(--text-2); font-size: 0.84rem; line-height: 1.6; }
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4) 0;
+  font-size: var(--fs-md);
+  gap: var(--space-2-5);
+}
+.setting-row select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--panel);
+}
+.setting-note {
+  padding: var(--space-3) var(--space-4) 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+}
 
 /* ---------- Toast ---------- */
 .toast {
-  position: fixed; left: 50%; bottom: calc(30px + env(safe-area-inset-bottom)); transform: translateX(-50%);
-  background: rgba(24, 28, 38, 0.94); color: #fff; padding: 10px 12px 10px 18px; border-radius: 10px;
-  font-size: 0.88rem; z-index: 99; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
-  display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px);
+  position: fixed;
+  left: 50%;
+  bottom: calc(30px + env(safe-area-inset-bottom)); /* 与悬浮写信按钮错开，非栅格间距 */
+  transform: translateX(-50%);
+  background: var(--toast-bg);
+  color: var(--toast-fg);
+  padding: var(--space-2-5) var(--space-3) var(--space-2-5) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+  z-index: 99;
+  box-shadow: var(--shadow-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - var(--space-7));
 }
-.toast[hidden] { display: none; }
-.toast button { color: #8dbcff; font-weight: 700; padding: 2px 6px; }
-.toast button[hidden] { display: none; }
+.toast[hidden] {
+  display: none;
+}
+.toast button {
+  color: var(--toast-action);
+  font-weight: 700;
+  padding: var(--space-0) var(--space-1-5);
+}
+.toast button[hidden] {
+  display: none;
+}
 
 /* ---------- 中等屏 ---------- */
 @media (max-width: 1100px) {
-  .app { grid-template-columns: 218px 318px 1fr; }
-  .reading-content { padding: 22px 24px 36px; }
+  .app {
+    grid-template-columns: var(--sidebar-w-mid, 218px) var(--list-w, 318px) 1fr;
+  }
+  .reading-content {
+    padding: var(--space-5) var(--space-6) var(--space-7);
+  }
+}
+
+/* 中等屏的折叠态单独限定在 min-width:861px。
+   注意不能直接写进上面的 max-width:1100px 块里：该块在 390px 手机端同样命中，
+   而 .app.sidebar-collapsed 的特异性高于手机端的 .app{grid-template-columns:1fr}，
+   会让移动端列宽被错误改成 64px 318px 1fr。加上 min-width 后，
+   折叠只作用于桌面区间，移动端抽屉完全不受影响。 */
+@media (min-width: 861px) and (max-width: 1100px) {
+  .app.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-collapsed-width) var(--list-w, 318px) 1fr;
+  }
 }
 
 /* ---------- 手机端：单栏 + 抽屉侧边栏 + 阅读全屏 ---------- */
 @media (max-width: 860px) {
-  .app { grid-template-columns: 1fr; }
-  .list-pane { border-right: none; }
-  .menu-btn { display: inline-flex; }
-  .sidebar-close { display: inline-flex; }
-  .fab { display: inline-flex; }
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .list-pane {
+    border-right: none;
+  }
+  /* 提高特异性以覆盖 .icon-btn 的 inline-flex（见上方 .icon-btn.menu-btn 注释） */
+  .icon-btn.menu-btn {
+    display: inline-flex;
+  }
+  .icon-btn.sidebar-close {
+    display: inline-flex;
+  }
+  .fab {
+    display: inline-flex;
+  }
 
   .sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0; width: 272px; max-width: 84vw; z-index: 45;
-    transform: translateX(-105%); transition: transform 0.22s ease;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 272px;
+    max-width: 84vw;
+    z-index: 45;
+    transform: translateX(-105%);
+    transition: transform var(--dur-base) ease;
     box-shadow: var(--shadow);
   }
-  .app.sidebar-open .sidebar { transform: none; }
+  .app.sidebar-open .sidebar {
+    transform: none;
+  }
+  /* 说明：折叠态（.sidebar-collapsed）的全部规则都写在 min-width:861px 里，
+     本断点下不会命中任何一条，因此这里刻意不放 .sidebar-collapsed 相关规则，
+     避免两套布局逻辑互相干扰。 */
 
   .reading-pane {
-    position: fixed; inset: 0; z-index: 40; background: var(--bg);
-    transform: translateX(102%); transition: transform 0.22s ease;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--bg);
+    transform: translateX(102%);
+    transition: transform var(--dur-base) ease;
   }
-  .app.reading-open .reading-pane { transform: none; }
-  .back-btn { display: inline-flex; }
-  #btnPrev, #btnNext { display: none; } /* 手机端用返回 + 点列表切换，工具栏更干净 */
-  .reading-content { padding: 18px 16px 32px; }
-  .mail-body { padding: 22px 18px; }
-  .page-pos { display: none; }
+  .app.reading-open .reading-pane {
+    transform: none;
+  }
+  .back-btn {
+    display: inline-flex;
+  }
+  #btnPrev,
+  #btnNext {
+    display: none; /* 手机端用返回 + 点列表切换，工具栏更干净 */
+  }
+  /* 移动端沿用与桌面相同的间距 token，只下调一档，避免出现 18px 这类孤立值 */
+  .reading-content {
+    padding: var(--space-4) var(--space-4) var(--space-7);
+  }
+  .mail-body {
+    padding: var(--space-5) var(--space-4);
+  }
+  .page-pos {
+    display: none;
+  }
+  /* 390px 下四个批量按钮 + 计数放不进一行，收紧内部间距并允许换行 */
+  .batch-bar {
+    gap: var(--space-1-5);
+    padding: var(--space-2) var(--space-3);
+  }
+  .batch-btn {
+    padding: var(--space-1) var(--space-2-5);
+  }
+  /* 沙箱 iframe 在窄屏按 60vh 收敛，同时保底 320px、上限 800px，
+     避免矮屏上框体过小、或平板横屏时占满整屏 */
+  .mail-html-frame {
+    height: clamp(320px, 60vh, 800px);
+  }
+}
+
+/* 拖拽分隔条：覆盖在列表栏右边缘，命中区 7px（视觉线只有 1px）。
+   默认不可见，hover / 拖动 / 键盘聚焦时才显示强调色，避免平时多一条竖线。 */
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: calc(var(--space-0) * -1.5);
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 15;
+  touch-action: none;
+  outline: none;
+}
+.col-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background var(--dur-fast) ease;
+}
+.col-resizer:hover::after,
+.col-resizer:focus-visible::after,
+.col-resizer.dragging::after {
+  background: var(--accent);
+}
+/* 命中区比视觉线宽，聚焦时给个浅底提示可拖拽 */
+.col-resizer:focus-visible {
+  background: var(--accent-soft);
+}
+@media (max-width: 860px) {
+  .col-resizer {
+    display: none;
+  }
 }
 
 /* ---------- 登录页 ---------- */
 .login-screen {
-  position: fixed; inset: 0; z-index: 200;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
   background: var(--bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
 }
-.login-screen[hidden] { display: none; }
-.login-card { width: min(400px, 100%); text-align: center; }
+.login-screen[hidden] {
+  display: none;
+}
+.login-card {
+  width: min(400px, 100%);
+  text-align: center;
+}
 .login-logo {
-  width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 18px;
-  background: var(--accent); color: #fff; font-size: 1.9rem;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 10px 30px rgba(30, 90, 200, 0.35);
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: calc(var(--fs-xl) * 1.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-logo);
 }
-.login-title { font-size: 1.7rem; font-weight: 700; }
-.login-desc { color: var(--text-2); line-height: 1.7; margin: 12px 0 26px; font-size: 0.94rem; }
+.login-title {
+  font-size: calc(var(--fs-xl) * 1.4);
+  font-weight: 700;
+}
+.login-desc {
+  color: var(--text-2);
+  line-height: var(--lh-relaxed);
+  margin: var(--space-3) 0 var(--space-6);
+  font-size: var(--fs-md);
+}
 .btn-google {
-  display: inline-flex; align-items: center; gap: 10px;
-  background: #fff; color: #3c4043; border: 1px solid #dadce0; border-radius: 10px;
-  padding: 11px 22px; font-weight: 600; font-size: 0.98rem;
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  background: var(--google-bg);
+  color: var(--google-fg);
+  border: 1px solid var(--google-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  box-shadow: var(--shadow-soft);
 }
-.btn-google:hover { background: #f8fafc; }
-[data-theme="dark"] .btn-google { background: #fff; }
-.btn-google:disabled { opacity: 0.6; cursor: wait; }
-.login-error { color: var(--danger); margin-top: 14px; font-size: 0.88rem; line-height: 1.6; }
-.login-error[hidden] { display: none; }
+.btn-google:hover {
+  background: var(--hover);
+}
+.btn-google:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.login-error {
+  color: var(--danger);
+  margin-top: var(--space-3);
+  font-size: var(--fs-base);
+  line-height: var(--lh-relaxed);
+}
+.login-error[hidden] {
+  display: none;
+}
 .login-note {
-  margin-top: 16px; text-align: left; font-size: 0.84rem; line-height: 1.65; color: var(--text-2);
-  background: var(--accent-soft); border-radius: 10px; padding: 10px 14px;
+  margin-top: var(--space-4);
+  text-align: left;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+  color: var(--text-2);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-2-5) var(--space-3);
 }
-.login-note[hidden] { display: none; }
-.login-note code { font-size: 0.8rem; }
-.login-demo { display: block; margin: 22px auto 0; color: var(--accent); font-weight: 600; font-size: 0.94rem; padding: 6px; }
-.login-scope { color: var(--text-3); font-size: 0.78rem; line-height: 1.7; margin-top: 16px; }
+.login-note[hidden] {
+  display: none;
+}
+.login-note code {
+  font-size: var(--fs-sm);
+}
+.login-demo {
+  display: block;
+  margin: var(--space-6) auto 0;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  padding: var(--space-1-5);
+}
+.login-scope {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-relaxed);
+  margin-top: var(--space-4);
+}
 
-/* ---------- v3.3 修复：滚动 / 溢出 / 流畅度 ---------- */
+/* ---------- 滚动 / 溢出 / 流畅度 ---------- */
 /* 列表滚不到底的根因：flex 子项默认 min-height:auto 不肯收缩，
    列表被内容撑出屏幕且自身无法滚动 → 全链路补 min-height:0 */
-.list-pane { min-height: 0; }
+.list-pane {
+  min-height: 0;
+}
 .mail-list {
-  min-height: 0; min-width: 0;
+  min-height: 0;
+  min-width: 0;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
-.reading { min-height: 0; min-width: 0; }
-.read-scroll { min-height: 0; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.read-card { min-width: 0; max-width: 100%; }
-/* 长链接/无空格长串（如验证链接）强制断行，不再撑出正文框 */
-.read-body p { overflow-wrap: anywhere; word-break: break-word; }
-.read-subject { overflow-wrap: anywhere; }
-.mail-snippet, .mail-subject { min-width: 0; }
-/* 真实模式隐藏演示专用标签区 */
-body.live-mode .labels-head, body.live-mode #labelNav { display: none; }
+.mail-snippet,
+.mail-subject {
+  min-width: 0;
+}
 
 /* ---------- v3.4：仿 Gmail 网页端补强 ---------- */
-.reading-pane { min-height: 0; }
-.reading-content { min-height: 0; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-.mail-body { overflow-wrap: anywhere; }
-.mail-body p { overflow-wrap: anywhere; word-break: break-word; }
-.reading-title { overflow-wrap: anywhere; }
-body.live-mode .labels-section { display: none; }
-.list-count { color: var(--text-3); font-size: 0.8rem; white-space: nowrap; margin-right: 2px; }
-.row-star { color: var(--text-3); cursor: pointer; padding: 0 4px; font-size: 0.95rem; flex-shrink: 0; }
-.row-star.on { color: #f7b500; }
-.mail-item.checked .mail-item-inner { background: var(--accent-soft); }
-.row-check { font-size: 1.05rem; color: var(--accent); margin-right: 8px; flex-shrink: 0; align-self: center; }
+.reading-pane {
+  min-height: 0;
+}
+.reading-content {
+  min-height: 0;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.mail-body {
+  overflow-wrap: anywhere;
+}
+.mail-body p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.reading-title {
+  overflow-wrap: anywhere;
+}
+body.live-mode .labels-section {
+  display: none;
+}
+.list-count {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  margin-right: var(--space-0);
+}
+.row-star {
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-md);
+  flex-shrink: 0;
+}
+.row-star.on {
+  color: var(--star-active);
+}
+.mail-item.checked .mail-item-inner {
+  background: var(--accent-soft);
+}
+.row-check {
+  font-size: var(--fs-lg);
+  color: var(--accent);
+  margin-right: var(--space-2);
+  flex-shrink: 0;
+  align-self: center;
+}
 .batch-bar {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 8px 14px; background: var(--accent-soft); border-bottom: 1px solid var(--border);
-  font-size: 0.86rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
 }
-.batch-bar[hidden] { display: none; }
-.batch-btn { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 4px 12px; font-size: 0.84rem; }
+.batch-bar[hidden] {
+  display: none;
+}
+.batch-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.batch-cancel {
+  margin-left: auto;
+}
+.batch-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  flex: none;
+}
+/* 未选中任何邮件时批量按钮不可用 */
+.batch-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* 多选模式下的「全选」勾选框 */
+.batch-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-sm);
+  flex: none;
+}
+.batch-all:hover {
+  color: var(--text);
+}
+.batch-all input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+.batch-all input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .search-all {
-  display: block; margin: 10px auto 18px; color: var(--accent); font-weight: 600; font-size: 0.9rem;
-  padding: 8px 14px;
+  display: block;
+  margin: var(--space-2-5) auto var(--space-4);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: var(--fs-base);
+  padding: var(--space-2) var(--space-4);
 }
-.search-all[hidden] { display: none; }
+.search-all[hidden] {
+  display: none;
+}
 .cat-chip {
-  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
-  background: var(--accent-soft); color: var(--accent); font-size: 0.72rem; font-weight: 600; vertical-align: 1px;
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  vertical-align: 1px;
 }
-.cat-chip.imp { background: #fdf0ec; color: #d93025; }
-[data-theme="dark"] .cat-chip.imp { background: rgba(217, 48, 37, 0.18); color: #ff8a80; }
-.attach-block { margin-top: 16px; }
-.attach-title { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; }
-.attach-title svg { width: 16px; height: 16px; }
-.attach-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-chip.imp {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.attach-block {
+  margin-top: var(--space-4);
+}
+.attach-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-weight: 600;
+  font-size: var(--fs-base);
+  margin-bottom: var(--space-2);
+}
+.attach-title svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
 .attach-chip {
-  display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
-  border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 8px 12px; font-size: 0.84rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
 }
-.attach-name { overflow-wrap: anywhere; text-align: left; }
-.attach-size { color: var(--text-3); white-space: nowrap; }
-body.density-compact .mail-item-inner { padding-top: 7px; padding-bottom: 7px; }
-body.density-compact .mail-snippet { display: none; }
+.attach-name {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.attach-size {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+body.density-compact .mail-item-inner {
+  padding-top: var(--space-1-5);
+  padding-bottom: var(--space-1-5);
+}
+body.density-compact .mail-snippet {
+  display: none;
+}
 
 /* ---------- v3.5：多账号 / 规则 / Outlook ---------- */
-.account-switch { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.account-switch[hidden] { display: none; }
+.account-switch {
+  display: flex;
+  gap: var(--space-1-5);
+  flex-wrap: wrap;
+  margin-top: var(--space-2-5);
+}
+.account-switch[hidden] {
+  display: none;
+}
 .account-chip {
-  border: 1px solid var(--border); background: var(--panel); color: var(--text-2);
-  border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-2);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
-.account-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-ms { margin-top: 10px; }
-.rules-block { margin: 14px 0 4px; text-align: left; }
-.rules-title { font-size: 0.86rem; font-weight: 600; margin-bottom: 8px; }
-.rules-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.account-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.btn-ms {
+  margin-top: var(--space-2-5);
+}
+.rules-block {
+  margin: var(--space-3) 0 var(--space-1);
+  text-align: left;
+}
+.rules-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+.rules-list {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+}
 .rules-list li {
-  display: flex; align-items: center; gap: 8px; font-size: 0.83rem; color: var(--text-2);
-  background: var(--panel-2); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1-5) var(--space-2-5);
+  margin-bottom: var(--space-1-5);
 }
-.rules-list li span { flex: 1; }
-.rules-del { color: var(--danger); font-weight: 700; padding: 2px 6px; }
-.rules-empty { color: var(--text-3); font-size: 0.82rem; padding: 2px 0 6px; }
-.rules-form { display: flex; gap: 6px; flex-wrap: wrap; }
-.rules-form select, .rules-form input {
-  border: 1px solid var(--border); background: var(--panel); color: var(--text);
-  border-radius: 8px; padding: 6px 8px; font-size: 0.84rem;
+.rules-list li span {
+  flex: 1;
 }
-.rules-form input { flex: 1; min-width: 90px; }
+.rules-del {
+  color: var(--danger);
+  font-weight: 700;
+  padding: var(--space-0) var(--space-1-5);
+}
+.rules-empty {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  padding: var(--space-0) 0 var(--space-1-5);
+}
+.rules-form {
+  display: flex;
+  gap: var(--space-1-5);
+  flex-wrap: wrap;
+}
+.rules-form select,
+.rules-form input {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1-5) var(--space-2);
+  font-size: var(--fs-sm);
+}
+.rules-form input {
+  flex: 1;
+  min-width: 90px;
+}
 .field select {
-  border: none; background: transparent; color: var(--text); font-size: 0.94rem; flex: 1; padding: 10px 2px; outline: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-md);
+  flex: 1;
+  padding: var(--space-2-5) var(--space-0);
+  outline: none;
 }
 
 /* ---------- 发件人分析 ---------- */
-.stats-list { list-style: none; margin: 6px 0; padding: 0; max-height: 46vh; overflow-y: auto; }
-.stats-row {
-  display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left;
-  padding: 9px 10px; border-radius: 10px; font-size: 0.88rem;
+/* 与设置页对齐：同样的行内边距、圆角与行高节奏 */
+.stats-list {
+  list-style: none;
+  margin: var(--space-1-5) 0;
+  padding: 0 var(--space-2);
+  max-height: 46vh;
+  overflow-y: auto;
 }
-.stats-row:hover { background: var(--accent-soft); }
-.stats-name { font-weight: 600; white-space: nowrap; }
-.stats-meta { color: var(--text-3); font-size: 0.78rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stats-count { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.stats-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2-5);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-2-5);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+}
+.stats-row:hover {
+  background: var(--accent-soft);
+}
+.stats-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.stats-meta {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-count {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* JS 在无数据时插入 .stats-empty，原先缺少样式会显示为无内边距的裸文本 */
+.stats-empty {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  padding: var(--space-2) var(--space-2-5);
+}
 
 /* ---------- v3.6：HTML 邮件渲染 ---------- */
-.mail-html-slot { margin-top: 20px; }
+.mail-html-slot {
+  margin-top: var(--space-5);
+}
+/* 沙箱 iframe 不再有 allow-same-origin，父页面拿不到 contentDocument，
+   无法按内容自动撑高 → 改用受限高度 + iframe 内部滚动，
+   既不会把超长邮件撑爆版面，也不需要同源权限。
+   高度用 clamp() 取「够大但不出屏」的区间：常见邮件一屏可读完，
+   超长邮件才出现内部滚动，避免 240px 那种内容被裁断的局促感。 */
 .mail-html-frame {
-  width: 100%; border: 1px solid var(--border); border-radius: 12px;
-  background: #ffffff; min-height: 240px; display: block;
+  width: 100%;
+  height: clamp(420px, 75vh, 1100px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* 邮件正文按白底设计，暗色主题下也保持白底；靠边框与周围面板区分，
+     故这里刻意不走 --panel（注释即豁免依据） */
+  background: #ffffff;
+  color-scheme: light; /* 让 iframe 内滚动条保持浅色，与白底一致 */
+  display: block;
 }
 
-/* ---------- v3.9：全屏界面（设置 / 写信） ---------- */
-.backdrop-full { padding: 0; }
-.backdrop-full .modal { width: 100%; height: 100dvh; max-height: none; border-radius: 0; }
-.sheet-body { overflow-y: auto; flex: 1; min-height: 0; padding-bottom: 30px; -webkit-overflow-scrolling: touch; }
-.set-group { padding: 22px 18px 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; color: var(--text-3); }
-.setting-col { display: flex; flex-direction: column; gap: 8px; padding: 13px 18px 0; font-size: 0.92rem; }
-.setting-col textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--panel); font: inherit; resize: vertical; color: inherit; }
-.setting-row input[type="checkbox"] { width: 21px; height: 21px; accent-color: var(--accent); flex: none; }
-#composeModal .compose-body { flex: 1; min-height: 0; resize: none; }
+/* ---------- 全屏界面（设置 / 写信） ---------- */
+.backdrop-full {
+  padding: 0;
+}
+.backdrop-full .modal {
+  width: 100%;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+}
+
+/* 全屏页也保持可读的行宽：内容居中并限制在 720px，
+   避免在 1440px 宽屏上标签与控件被拉到屏幕两端、视线来回跳。 */
+.backdrop-full .modal-header,
+.backdrop-full .modal-footer {
+  width: 100%;
+  padding-left: max(var(--space-5), calc((100% - var(--content-width)) / 2));
+  padding-right: max(var(--space-5), calc((100% - var(--content-width)) / 2));
+  border-bottom: 1px solid var(--border);
+}
+.backdrop-full .modal-footer {
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+.sheet-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-bottom: var(--space-8);
+  -webkit-overflow-scrolling: touch;
+}
+/* 正文块自身居中限宽，滚动条仍贴窗口右缘 */
+.sheet-body > * {
+  max-width: var(--content-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+.backdrop-full .field {
+  max-width: var(--content-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+/* 写信页字段的标签与输入框同样受行宽约束（.field 已限宽，这里只补内边距对齐） */
+#composeModal .field {
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+.set-group {
+  padding: var(--space-6) var(--space-5) var(--space-0);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.setting-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) 0;
+  font-size: var(--fs-md);
+}
+.setting-col textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--panel);
+  font: inherit;
+  resize: vertical;
+  color: inherit;
+}
+/* 21px 是勾选框的可点击尺寸，介于 --icon(18) 与 --icon-lg(22) 之间，属控件例外 */
+.setting-row input[type="checkbox"] {
+  width: 21px;
+  height: 21px;
+  accent-color: var(--accent);
+  flex: none;
+}
+#composeModal .compose-body {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+}
+
+/* 设置项：文字左、控件右，但在受限行宽内不再横跨整屏 */
+.setting-row {
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+.setting-row > span {
+  flex: 1;
+  min-width: 0;
+  line-height: var(--lh-base);
+}
+.setting-row > select {
+  flex: none;
+  max-width: 260px;
+}
+.setting-note {
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+
+/* 过滤规则表单：窄屏也保持一行可用的最小宽度 */
+.rules-block {
+  margin: var(--space-3) auto var(--space-1);
+  max-width: var(--content-width);
+  padding: 0 var(--space-5);
+  text-align: left;
+}
+.rules-form select,
+.rules-form input {
+  min-width: 0;
+}
+.rules-form select:first-child {
+  flex: 0 0 auto;
+}
+.rules-form input {
+  flex: 1 1 120px;
+}
+.rules-form select:nth-of-type(2) {
+  flex: 0 0 auto;
+}
+
+/* ---------- v4：可访问性与缺失按键补齐 ---------- */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: var(--space-2);
+  z-index: 999;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: var(--space-3);
+}
+.reading-empty-hint {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  margin-top: var(--space-1-5);
+}
+/* kbd 键帽：5px 是键帽专用的极小圆角，介于 0 与 --radius-sm 之间，属有意例外 */
+.reading-empty-hint kbd {
+  display: inline-block;
+  padding: var(--space-0) var(--space-1-5);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.meta-unsub {
+  color: var(--accent);
+  font-weight: 600;
+}
+.meta-unsub:hover {
+  text-decoration: underline;
+}
+/* 刷新按钮图标（复用搜索图标的 stroke 风格） */
+[data-icon="refresh"] svg {
+  transform-origin: center;
+}
+#btnRefresh:disabled {
+  opacity: 0.35;
+}
+/* 工具栏星标/已读按钮的激活态 */
+.toolbar-right .icon-btn.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+/* 列表项键盘焦点可见 */
+.mail-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+.nav-list li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* 紧凑模式行高收紧 */
+body.density-compact .mail-item-inner {
+  padding-top: var(--space-1-5);
+  padding-bottom: var(--space-1-5);
+}
+body.density-compact .mail-row-1 {
+  line-height: var(--lh-tight);
+}
+/* 阅读面板的 transform 加速。
+   注意这里刻意不再给 .sidebar 加 will-change:transform：
+   will-change 会让元素成为 fixed 定位后代的包含块，
+   侧栏内的浮动元素定位会因此跑偏。侧栏自身的宽度/内边距过渡
+   用普通 transition 已经足够流畅。 */
+.reading-pane {
+  will-change: transform;
+}
+/* 打印时隐藏侧栏与工具栏 */
+@media print {
+  .sidebar,
+  .list-pane,
+  .reading-toolbar,
+  .fab,
+  .toast {
+    display: none !important;
+  }
+  .reading-pane {
+    position: static;
+    transform: none;
+  }
+}
+/* 减少动态效果（尊重系统偏好） */
+@media (prefers-reduced-motion: reduce) {
+  .app,
+  .sidebar,
+  .reading-pane,
+  .mail-item-inner.anim {
+    transition: none !important;
+  }
+}
+
+/* ---------- 写信 / 回复页：卡片式布局 ---------- */
+/* 原实现是「标题栏 + 几行下划线 + 一片空白 textarea」，宽屏下内容缩在中间一条窄带里，
+   观感空旷。这里改成「页面底色 + 居中纸张卡片」：字段区、正文区、操作栏各成一层，
+   每个新增控件都对应真实功能（抄送/密送、插入签名、引用原文、字数、丢弃）。 */
+.compose-sheet {
+  display: flex;
+  flex-direction: column;
+  /* 页面底色比纸张略深，卡片才立得起来（亮色 #f7f8fa vs #fff，暗色 #1b1e24 vs #1d2026） */
+  background: var(--sidebar-bg);
+}
+.compose-header {
+  flex: none;
+  gap: var(--space-3);
+  background: var(--panel);
+}
+.compose-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  min-width: 0;
+  flex: 1;
+}
+.compose-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+.compose-subtitle {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.compose-subtitle:empty {
+  display: none;
+}
+
+/* 纸张卡片：填满标题栏与底部之间的剩余高度，宽屏下限制行宽并居中。
+   顶部留出间距并加圆角，视觉上像一张从桌面升起的信纸。 */
+.compose-doc {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: calc(var(--content-width) + var(--space-8) * 2);
+  margin: var(--space-4) auto 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.compose-fields {
+  flex: none;
+  padding: var(--space-1) 0 var(--space-2);
+}
+#composeModal .compose-fields .field {
+  max-width: none;
+  margin: 0;
+}
+/* 字段行：去掉原来满宽的细下划线，改成「标签 + 输入」的对齐行，只在行间留呼吸感 */
+#composeModal .compose-fields .field {
+  border-bottom: none;
+  padding-top: var(--space-2-5);
+  padding-bottom: var(--space-2-5);
+}
+#composeModal .compose-fields .field + .field {
+  border-top: 1px solid var(--border-soft);
+}
+#composeModal .compose-fields .field input {
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
+  padding: var(--space-1) 0;
+}
+#composeModal .compose-fields .field input::placeholder {
+  color: var(--text-3);
+}
+/* Chromium 会为带 list 属性的输入框画一个下拉箭头，叠在行尾显得突兀；
+   联系人补全在输入时本来就自动出现，这里隐藏该指示器。 */
+#composeTo::-webkit-calendar-picker-indicator {
+  display: none;
+}
+/* 暗色下 panel 与 sidebar-bg 只差两个色阶，卡片立不起来，改用更深的页面底色 */
+[data-theme="dark"] .compose-sheet {
+  background: var(--bg);
+}
+.compose-to-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+.compose-to-row > span {
+  width: 60px;
+  flex: none;
+  color: var(--text-2);
+  font-size: var(--fs-base);
+  white-space: nowrap;
+}
+.compose-to-row input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+}
+.field-link {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.field-link:hover {
+  background: var(--accent-soft);
+}
+.field-link[aria-expanded="true"] {
+  background: var(--accent-soft);
+}
+
+/* 正文区：独立面板，带可见边界，不再是「一片白底漂浮文字」 */
+.compose-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+.compose-toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--panel);
+}
+.compose-tool {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  padding: var(--space-1) var(--space-2-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+.compose-tool:hover {
+  background: var(--hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+.compose-count {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+#composeModal .compose-body,
+#composeBody.compose-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  resize: none;
+  padding: var(--space-4) var(--space-5);
+  line-height: var(--lh-relaxed);
+  font-size: var(--fs-md);
+  border: none;
+  outline: none;
+  background: var(--panel);
+}
+
+/* 底部操作栏：贴住卡片底部，主次分明 */
+.compose-footer {
+  flex: none;
+  background: var(--panel-2);
+  border-top: 1px solid var(--border);
+}
+.btn-text-action {
+  color: var(--text-2);
+  font-size: var(--fs-base);
+  padding: var(--space-1-5) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.btn-text-action:hover {
+  background: var(--hover);
+  color: var(--danger);
+}
+
+/* 写信页标题栏与下方纸张卡片左边缘对齐：
+   卡片的可用宽度是 content-width + 两侧各 40px 内边距，标题栏用同样的留白计算。 */
+#composeModal .compose-header {
+  padding-left: max(var(--space-5), calc((100% - (var(--content-width) + var(--space-8) * 2)) / 2));
+  padding-right: max(var(--space-5), calc((100% - (var(--content-width) + var(--space-8) * 2)) / 2));
+}
+
+/* 移动端：去掉左右边框，卡片贴边铺满 */
+@media (max-width: 860px) {
+  .compose-doc {
+    max-width: none;
+    margin-top: 0;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #composeModal .compose-header {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .compose-to-row {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  #composeModal .compose-fields .field {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .compose-toolbar {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  #composeBody.compose-body {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}
