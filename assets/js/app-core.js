@@ -28,6 +28,31 @@ const $ = (sel) => document.querySelector(sel);
    导致阅读区「回复 / 转发」按钮点了没反应。bindEvents 初始化时把函数赋给这个引用。 */
 let openComposeRef = null;
 
+function pushMail(partial, target) {
+  (target || src()).unshift(
+    Object.assign(
+      {
+        id: "u" + Date.now(),
+        ts: Date.now(),
+        from: "我",
+        address: "demo@mymail.app",
+        to: "",
+        date: "今天",
+        time: "刚刚",
+        subject: "（无主题）",
+        snippet: "",
+        label: null,
+        unread: false,
+        starred: false,
+        folder: "sent",
+        body: [],
+        bodyZh: null,
+      },
+      partial
+    )
+  );
+}
+
 /* ---------------- 图标（同原版，hydration） ---------------- */
 const P = (inner) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
@@ -88,6 +113,13 @@ const ICONS = {
   ),
   refresh: P(
     '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.15"/><polyline points="1 20 1 14 7 14"/>'
+  ),
+  minimize: P('<line x1="5" y1="12" x2="19" y2="12"/>'),
+  maximize: P(
+    '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'
+  ),
+  restore: P(
+    '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>'
   ),
 };
 function hydrateIcons(root = document) {
@@ -255,17 +287,35 @@ function mailItemHtml(m) {
   const catChip = cat ? `<span class="cat-chip">${esc(CAT_NAMES[cat])}</span>` : "";
   const impChip = importantOf(m) ? '<span class="cat-chip imp">重要</span>' : "";
   const tagChip = lab ? `<span class="mail-tag">${esc(lab.name)}</span>` : "";
+  const hasAttach = Boolean((m.attachments && m.attachments.length) || m.hasAttachments);
+  const attachBadge = hasAttach ? `<span class="mail-attach-icon" title="含附件">${ICONS.clip}</span>` : "";
+  const avatarInit = esc(initialOf(m.from));
+  const avatarBg = colorOf(m.from);
+
   return (
     `<li class="mail-item${m.unread ? " unread" : ""}${selected ? " selected" : ""}${checked ? " checked" : ""}" data-id="${esc(m.id)}" role="button" tabindex="0" aria-selected="${selected ? "true" : "false"}">` +
     `<div class="swipe-bg" aria-hidden="true">${ICONS.trash}</div>` +
     `<div class="mail-item-inner">` +
-    `${ui.selecting ? `<span class="row-check" aria-hidden="true">${checked ? "☑" : "☐"}</span>` : ""}` +
     `${m.unread ? '<span class="unread-dot" aria-hidden="true"></span>' : ""}` +
-    `<div class="mail-row-1"><span class="mail-from">${esc(m.from)}</span>` +
-    `<button type="button" class="row-star${m.starred ? " on" : ""}" data-star="${esc(m.id)}" aria-label="${m.starred ? "取消星标" : "加星标"}" aria-pressed="${m.starred ? "true" : "false"}">${m.starred ? "★" : "☆"}</button>` +
-    `<span class="mail-date">${esc(m.date)}</span></div>` +
+    `${ui.selecting ? `<span class="row-check" aria-hidden="true">${checked ? "☑" : "☐"}</span>` : `<div class="mail-avatar" style="background:${avatarBg}" aria-hidden="true">${avatarInit}</div>`}` +
+    `<div class="mail-item-content">` +
+    `<div class="mail-row-1">` +
+    `<span class="mail-from">${esc(m.from)}</span>` +
+    `${attachBadge}` +
+    `<div class="mail-meta-right">` +
+    `<button type="button" class="mobile-star-btn${m.starred ? " on" : ""}" data-star="${esc(m.id)}" aria-label="${m.starred ? "取消星标" : "加星标"}">${m.starred ? "★" : "☆"}</button>` +
+    `<span class="mail-date">${esc(m.date)}</span>` +
+    `<div class="hover-actions" role="toolbar" aria-label="快捷操作">` +
+    `<button type="button" class="quick-action-btn" data-qa="trash" title="删除">${ICONS.trash}</button>` +
+    `<button type="button" class="quick-action-btn" data-qa="archive" title="归档">${ICONS.archive}</button>` +
+    `<button type="button" class="quick-action-btn" data-qa="read" title="${m.unread ? "标为已读" : "标为未读"}">${ICONS.mail}</button>` +
+    `<button type="button" class="quick-action-btn row-star${m.starred ? " on" : ""}" data-star="${esc(m.id)}" title="${m.starred ? "取消星标" : "加星标"}">★</button>` +
+    `</div>` +
+    `</div>` +
+    `</div>` +
     `<div class="mail-subject">${esc(m.subject)}${catChip}${impChip}</div>` +
     `<div class="mail-snippet">${esc(m.snippet)}${tagChip}</div>` +
+    `</div>` +
     `</div></li>`
   );
 }
@@ -323,12 +373,15 @@ function renderList() {
       } else if (!m.unread && dot) {
         dot.remove();
       }
-      const starBtn = li.querySelector("[data-star]");
-      if (starBtn) {
+      li.querySelectorAll("[data-star]").forEach((starBtn) => {
         starBtn.textContent = m.starred ? "★" : "☆";
         starBtn.classList.toggle("on", Boolean(m.starred));
         starBtn.setAttribute("aria-label", m.starred ? "取消星标" : "加星标");
         starBtn.setAttribute("aria-pressed", m.starred ? "true" : "false");
+      });
+      const readQaBtn = li.querySelector('[data-qa="read"]');
+      if (readQaBtn) {
+        readQaBtn.title = m.unread ? "标为已读" : "标为未读";
       }
     });
   }
@@ -387,6 +440,7 @@ function renderReading() {
   }
   $("#readingEmpty").hidden = true;
   const body = ui.showTranslated && m.bodyZh ? m.bodyZh : m.body;
+  const isDraft = m.folder === "drafts";
   box.innerHTML = `
     <div class="reading-title-row">
       <h2 class="reading-title">${esc(m.subject)}</h2>
@@ -408,7 +462,42 @@ function renderReading() {
       <button type="button" class="chip-btn" id="btnShowImages">${m.showImages === false ? "显示图片" : "隐藏图片"}</button>
     </div>
     ${m.bodyHtml && !(ui.showTranslated && m.bodyZh) ? '<div class="mail-html-slot" id="htmlSlot"></div>' : `<div class="mail-body">${body.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`}
-    ${m.attachments && m.attachments.length ? `<div class="attach-block"><div class="attach-title">${ICONS.clip}<span>附件（${m.attachments.length}）</span></div><div class="attach-row">${m.attachments.map((at, i) => `<button type="button" class="attach-chip" data-att="${i}"><span class="attach-name">${esc(at.filename || "附件")}</span><span class="attach-size">${fmtSize(at.size)}</span></button>`).join("")}</div></div>` : ""}`;
+    ${m.attachments && m.attachments.length ? `<div class="attach-block"><div class="attach-title">${ICONS.clip}<span>附件（${m.attachments.length}）</span></div><div class="attach-row">${m.attachments.map((at, i) => `<button type="button" class="attach-chip" data-att="${i}"><span class="attach-name">${esc(at.filename || "附件")}</span><span class="attach-size">${fmtSize(at.size)}</span></button>`).join("")}</div></div>` : ""}
+    ${
+      !isDraft
+        ? `
+    <section class="quick-reply-box" id="quickReplyBox" aria-label="快捷回复">
+      <div class="quick-reply-header">
+        <div class="quick-reply-to">
+          <span class="quick-reply-avatar" style="background:${colorOf(m.from)}" aria-hidden="true">${esc(initialOf(m.from))}</span>
+          <span>回复给 <strong>${esc(m.from)}</strong> &lt;${esc(m.address)}&gt;</span>
+        </div>
+        <div class="quick-reply-header-tools">
+          <button type="button" class="quick-reply-tool-btn" id="btnQuickReplyPopout" title="展开为独立写信窗口" aria-label="展开为独立写信窗口">${ICONS.edit}</button>
+        </div>
+      </div>
+      <div class="quick-reply-body">
+        <textarea id="quickReplyText" class="quick-reply-textarea" placeholder="写下回复内容…（快捷回复，按发送立即发出）" rows="3"></textarea>
+      </div>
+      <div class="quick-reply-footer">
+        <div class="quick-reply-left">
+          <button type="button" class="quick-tool-btn" id="btnQuickReplyQuote">引用原文</button>
+          <button type="button" class="quick-tool-btn" id="btnQuickReplySig">插入签名</button>
+        </div>
+        <div class="quick-reply-right">
+          <button type="button" class="btn-secondary btn-sm" id="btnQuickReplyFull">完整编辑</button>
+          <button type="button" class="btn-primary btn-sm" id="btnQuickReplySend">发送回复</button>
+        </div>
+      </div>
+    </section>
+    `
+        : `
+    <div class="draft-prompt-box">
+      <span>当前正在查看草稿，可继续编辑或发送。</span>
+      <button type="button" class="btn-primary btn-sm" id="btnEditDraft">继续编辑草稿</button>
+    </div>
+    `
+    }`;
   $("#btnStar").onclick = () => {
     m.starred = !m.starred;
     save();
@@ -472,15 +561,16 @@ function renderReading() {
     (m.subject || "") +
     "\n\n" +
     (m.body || []).join("\n\n");
-  const openReply = () =>
+  const openReply = (initialBody = "") =>
     openComposeRef &&
     openComposeRef({
       mode: "reply",
       to: m.address,
-      subject: "Re: " + m.subject,
+      subject: m.subject.startsWith("Re:") ? m.subject : "Re: " + m.subject,
       provider: m.provider,
       from: m.from,
       quote: quoteBlock,
+      body: initialBody,
     });
   const openFwd = () =>
     openComposeRef &&
@@ -491,8 +581,119 @@ function renderReading() {
       from: m.from,
       quote: quoteBlock,
     });
-  $("#btnReply").onclick = openReply;
+  $("#btnReply").onclick = () => {
+    const qrText = $("#quickReplyText");
+    if (qrText) {
+      qrText.scrollIntoView({ behavior: "smooth", block: "center" });
+      qrText.focus();
+    } else {
+      openReply();
+    }
+  };
   $("#btnForward").onclick = openFwd;
+
+  if (isDraft) {
+    const editBtn = $("#btnEditDraft");
+    if (editBtn) {
+      editBtn.onclick = () => {
+        openComposeRef &&
+          openComposeRef({
+            mode: "new",
+            to: m.to,
+            subject: m.subject === "（无主题）" ? "" : m.subject,
+            body: (m.body || []).join("\n\n"),
+            provider: m.provider,
+          });
+      };
+    }
+  } else {
+    const qrText = $("#quickReplyText");
+    $("#btnQuickReplyQuote")?.addEventListener("click", () => {
+      if (!qrText) return;
+      if (qrText.value.includes(quoteBlock.slice(0, 24))) {
+        toast("已引用原文");
+        return;
+      }
+      qrText.value = (qrText.value.trim() ? qrText.value.trim() + "\n\n" : "") + quoteBlock;
+      qrText.focus();
+    });
+
+    $("#btnQuickReplySig")?.addEventListener("click", () => {
+      if (!qrText) return;
+      if (!state.signature) {
+        toast("还没有设置签名：可在设置里添加");
+        return;
+      }
+      if (qrText.value.includes(state.signature)) {
+        toast("已包含签名");
+        return;
+      }
+      qrText.value = (qrText.value.trim() ? qrText.value.trim() + "\n\n" : "") + "--\n" + state.signature;
+      qrText.focus();
+    });
+
+    const triggerFull = () => {
+      const typed = qrText ? qrText.value : "";
+      openReply(typed);
+    };
+    $("#btnQuickReplyFull")?.addEventListener("click", triggerFull);
+    $("#btnQuickReplyPopout")?.addEventListener("click", triggerFull);
+
+    $("#btnQuickReplySend")?.addEventListener("click", async () => {
+      const text = qrText ? qrText.value.trim() : "";
+      if (!text) {
+        toast("请先输入回复内容");
+        qrText?.focus();
+        return;
+      }
+      const sendBtn = $("#btnQuickReplySend");
+      sendBtn.disabled = true;
+      sendBtn.textContent = "发送中…";
+      const sub = m.subject.startsWith("Re:") ? m.subject : "Re: " + m.subject;
+      try {
+        if (ui.mode === "live" && m.provider) {
+          const svc = svcOf(m.provider);
+          if (!svc) throw new Error("未登录对应账号");
+          await svc.send({ to: m.address, subject: sub, body: text });
+          pushMail(
+            {
+              to: m.address,
+              from: "我",
+              subject: sub,
+              snippet: text.slice(0, 60),
+              body: text.split(/\n{2,}/).filter(Boolean),
+              folder: "sent",
+              provider: m.provider,
+              bodyLoaded: true,
+            },
+            storeOf(m)
+          );
+          toast((m.provider === "outlook" ? "Outlook" : "Gmail") + " 回复已发送");
+        } else {
+          // 演示模式
+          pushMail({
+            to: m.address || m.from,
+            from: "我",
+            subject: sub,
+            snippet: text.slice(0, 60),
+            body: text.split(/\n{2,}/).filter(Boolean),
+            folder: "sent",
+            provider: m.provider,
+            bodyLoaded: true,
+          });
+          save();
+          toast("回复已发送（演示模式，已存入已发送文件夹）");
+        }
+        qrText.value = "";
+        renderAll();
+      } catch (err) {
+        toast("发送失败：" + (err.message || "未知错误"));
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "发送回复";
+      }
+    });
+  }
   $("#btnUnsub").onclick = () => {
     if (m.unsub) {
       if (m.unsub.startsWith("mailto:")) {
@@ -799,8 +1000,38 @@ export function bindEvents(handlers) {
         e.preventDefault();
         return;
       }
+      // 快捷操作 (Hover Quick Actions)
+      const qa = e.target.closest("[data-qa]");
+      if (qa) {
+        e.stopPropagation();
+        const action = qa.dataset.qa;
+        const li = qa.closest("[data-id]");
+        if (!li) return;
+        const m = byId(li.dataset.id);
+        if (!m) return;
+        if (action === "trash") {
+          trashMail(m);
+        } else if (action === "archive") {
+          if (m.folder === "inbox") {
+            m.archived = true;
+            m.folder = "all";
+            save();
+            renderAll();
+            toast("已归档 1 封邮件");
+          } else {
+            toast("仅收件箱中的邮件可归档");
+          }
+        } else if (action === "read") {
+          m.unread = !m.unread;
+          save();
+          renderAll();
+          toast(m.unread ? "已标为未读" : "已标为已读");
+        }
+        return;
+      }
       const star = e.target.closest("[data-star]");
       if (star) {
+        e.stopPropagation();
         const m = byId(star.dataset.star);
         if (m) {
           m.starred = !m.starred;
@@ -1222,6 +1453,50 @@ export function bindEvents(handlers) {
   };
 
   /* ---------------- 写邮件 ---------------- */
+  let composeMode = state.composeWindowMode || "floating";
+
+  function applyComposeMode(mode) {
+    if (window.innerWidth <= 860) mode = "fullscreen";
+    composeMode = mode;
+    state.composeWindowMode = mode;
+    saveSync();
+
+    const modal = $("#composeModal");
+    if (!modal) return;
+    modal.classList.remove("compose-mode-floating", "compose-mode-fullscreen", "compose-mode-minimized");
+    modal.classList.add("compose-mode-" + mode);
+
+    const minBtn = $("#btnMinimizeCompose");
+    const maxBtn = $("#btnMaximizeCompose");
+    if (minBtn) {
+      minBtn.innerHTML = mode === "minimized" ? ICONS.maximize : ICONS.minimize;
+      minBtn.title = mode === "minimized" ? "还原" : "最小化";
+    }
+    if (maxBtn) {
+      maxBtn.innerHTML = mode === "fullscreen" ? ICONS.restore : ICONS.maximize;
+      maxBtn.title = mode === "fullscreen" ? "还原为窗口" : "最大化";
+    }
+    if (mode === "floating" || mode === "minimized") {
+      releaseTrap();
+    } else if (mode === "fullscreen" && !modal.hidden) {
+      trapFocus(modal);
+    }
+  }
+
+  $("#btnMinimizeCompose")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    applyComposeMode(composeMode === "minimized" ? "floating" : "minimized");
+  });
+  $("#btnMaximizeCompose")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    applyComposeMode(composeMode === "fullscreen" ? "floating" : "fullscreen");
+  });
+  $("#composeHeader")?.addEventListener("click", (e) => {
+    if (composeMode === "minimized" && !e.target.closest("button")) {
+      applyComposeMode("floating");
+    }
+  });
+
   // 记录当前写信上下文（回复/转发时用于「引用原文」按钮与标题副文案）
   let composeCtx = { mode: "new", quote: null, from: "", subject: "" };
 
@@ -1287,11 +1562,17 @@ export function bindEvents(handlers) {
     $("#composeBody").value = (prefill.body || "") + (state.signature ? "\n\n--\n" + state.signature : "");
     $("#composeHint").textContent = "";
     updateComposeCount();
+    if (composeMode === "minimized") {
+      composeMode = "floating";
+    }
+    applyComposeMode(window.innerWidth <= 860 ? "fullscreen" : composeMode);
     $("#composeModal").hidden = false;
     $("#composeModal").setAttribute("aria-hidden", "false");
     // 焦点陷阱：首个输入框
     requestAnimationFrame(() => $("#composeTo").focus());
-    trapFocus($("#composeModal"));
+    if (composeMode === "fullscreen" || window.innerWidth <= 860) {
+      trapFocus($("#composeModal"));
+    }
   }
   function closeCompose() {
     $("#composeModal").hidden = true;
@@ -1616,6 +1897,9 @@ export function bindEvents(handlers) {
   let trapHandler = null;
   function trapFocus(container) {
     releaseTrap();
+    if (container.id === "composeModal" && composeMode !== "fullscreen") {
+      return;
+    }
     const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
     trapHandler = (e) => {
       if (e.key !== "Tab") return;
@@ -1672,7 +1956,8 @@ export function bindEvents(handlers) {
       document.querySelector(".app").classList.remove("reading-open");
       return;
     }
-    if (!$("#composeModal").hidden || !$("#settingsModal").hidden) return;
+    if (!$("#composeModal").hidden && composeMode === "fullscreen") return;
+    if (!$("#settingsModal").hidden) return;
     if (e.target.matches("input, textarea, select")) return;
     if (state.shortcuts === false) return;
     if (e.key === "j") stepSelection(1);

@@ -677,9 +677,24 @@ ul {
 .mail-item-inner {
   position: relative;
   background: var(--list-bg);
-  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
   cursor: pointer;
   touch-action: pan-y;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2-5);
+  transition: background var(--dur-fast) ease;
+}
+.mail-item-inner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3.5px;
+  background: transparent;
+  border-radius: 0 3px 3px 0;
+  transition: background var(--dur-fast) ease;
 }
 .mail-item-inner.anim {
   transition: transform var(--dur-fast) ease;
@@ -687,62 +702,210 @@ ul {
 .mail-item-inner:hover {
   background: var(--hover);
 }
-.mail-item.selected .mail-item-inner {
+
+/* 列表发件人彩色头像 */
+.mail-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  color: var(--avatar-fg);
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-top: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.row-check {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-lg);
+  color: var(--accent);
+  flex: none;
+  margin-top: 2px;
+}
+.mail-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 选中态：微质感高雅设计（替换深蓝满铺） */
+.mail-item.selected .mail-item-inner::before {
   background: var(--accent);
-  color: var(--on-accent);
+}
+.mail-item.selected .mail-item-inner {
+  background: var(--accent-soft);
+}
+.mail-item.selected .mail-item-inner:hover {
+  background: #dfe9f7;
+}
+[data-theme="dark"] .mail-item.selected .mail-item-inner {
+  background: rgba(90, 162, 255, 0.12);
+}
+[data-theme="dark"] .mail-item.selected .mail-item-inner:hover {
+  background: rgba(90, 162, 255, 0.18);
+}
+.mail-item.selected .mail-from {
+  color: var(--accent);
+  font-weight: 700;
 }
 .mail-item.selected .mail-subject {
-  color: var(--on-accent-strong);
+  color: var(--text);
+  font-weight: 600;
 }
 .mail-item.selected .mail-snippet,
 .mail-item.selected .mail-date {
-  color: var(--on-accent-soft);
+  color: var(--text-2);
 }
-.mail-item.selected .mail-tag {
-  background: var(--on-accent-chip-bg);
-  color: var(--on-accent-chip-fg);
-}
-.mail-item.selected .unread-dot {
-  background: var(--on-accent);
+.mail-item.selected .hover-actions {
+  background: var(--panel);
 }
 
 .mail-row-1 {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-1-5);
+  position: relative;
 }
 .unread-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-pill);
   background: var(--accent);
   flex: none;
   position: absolute;
-  left: var(--space-2);
-  top: var(--space-5);
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .mail-from {
   font-weight: 500;
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 160px;
 }
 .mail-item.unread .mail-from {
   font-weight: 700;
 }
-.mail-date {
+.mail-attach-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-3);
+  flex: none;
+  margin-left: 2px;
+}
+.mail-attach-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.mail-meta-right {
   margin-left: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 62px;
+}
+.mail-date {
   color: var(--text-2);
   font-size: var(--fs-xs);
-  flex: none;
+  white-space: nowrap;
+  transition: opacity var(--dur-fast) ease;
 }
+
+/* 列表行悬浮快捷操作（Hover Quick Actions） */
+.hover-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) ease;
+}
+.mail-item-inner:hover .hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.mail-item-inner:hover .mail-date {
+  opacity: 0;
+}
+.quick-action-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-2);
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.quick-action-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.quick-action-btn:hover {
+  background: var(--panel);
+  color: var(--accent);
+}
+.quick-action-btn[data-qa="trash"]:hover {
+  color: var(--danger);
+}
+.quick-action-btn.row-star {
+  font-size: 13px;
+  color: var(--text-3);
+  padding: 0;
+}
+.quick-action-btn.row-star.on {
+  color: var(--star-active);
+}
+.mobile-star-btn {
+  display: none;
+}
+@media (max-width: 860px) {
+  .hover-actions {
+    display: none !important;
+  }
+  .mail-date {
+    opacity: 1 !important;
+  }
+  .mobile-star-btn {
+    display: inline-flex;
+    font-size: 14px;
+    color: var(--text-3);
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+  .mobile-star-btn.on {
+    color: var(--star-active);
+  }
+}
+
 .mail-subject {
   font-size: var(--fs-base);
-  margin-top: var(--space-0);
+  margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text);
 }
 .mail-item.unread .mail-subject {
   font-weight: 600;
@@ -838,7 +1001,9 @@ ul {
 .reading-content > .mail-actions-row,
 .reading-content > .mail-body,
 .reading-content > .mail-html-slot,
-.reading-content > .attach-block {
+.reading-content > .attach-block,
+.reading-content > .quick-reply-box,
+.reading-content > .draft-prompt-box {
   max-width: var(--reading-width);
   margin-left: auto;
   margin-right: auto;
@@ -960,6 +1125,147 @@ ul {
 }
 .btn-secondary:hover {
   background: var(--hover);
+}
+
+/* ---------- 阅读区：内联快捷回复栏 ---------- */
+.quick-reply-box {
+  max-width: var(--reading-width);
+  margin: var(--space-6) auto 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-control);
+  overflow: hidden;
+  transition:
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+.quick-reply-box:focus-within {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--shadow-soft);
+}
+.quick-reply-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2-5) var(--space-4);
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.quick-reply-to {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quick-reply-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  color: var(--avatar-fg);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.quick-reply-header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.quick-reply-tool-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.quick-reply-tool-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.quick-reply-tool-btn:hover {
+  background: var(--hover);
+  color: var(--accent);
+}
+.quick-reply-body {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+.quick-reply-textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
+  color: var(--text);
+  resize: vertical;
+  min-height: 80px;
+  padding: 0;
+}
+.quick-reply-textarea::placeholder {
+  color: var(--text-3);
+}
+.quick-reply-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  background: var(--panel-2);
+  border-top: 1px solid var(--border-soft);
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.quick-reply-left,
+.quick-reply-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.quick-tool-btn {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast);
+}
+.quick-tool-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.btn-sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-sm);
+}
+.draft-prompt-box {
+  max-width: var(--reading-width);
+  margin: var(--space-6) auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  background: var(--panel-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: var(--fs-base);
 }
 
 .reading-empty {
@@ -1555,6 +1861,13 @@ body.density-compact .mail-item-inner {
 }
 body.density-compact .mail-snippet {
   display: none;
+}
+body.density-compact .mail-avatar,
+body.density-compact .row-check {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+  margin-top: 0;
 }
 
 /* ---------- v3.5：多账号 / 规则 / Outlook ---------- */
@@ -2171,5 +2484,153 @@ body.density-compact .mail-row-1 {
   #composeBody.compose-body {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
+  }
+}
+
+/* ---------- 写信弹窗：浮动小窗 / 最小化 / 全屏 三态系统 ---------- */
+.compose-window-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.compose-win-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.compose-win-btn svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.compose-win-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+#btnCloseCompose:hover {
+  color: var(--danger);
+}
+
+/* 桌面端浮动小窗模式（右下角停靠，不遮挡背景阅读与操作） */
+@media (min-width: 861px) {
+  #composeModal.compose-mode-floating {
+    position: fixed;
+    inset: auto;
+    right: 28px;
+    bottom: 0;
+    top: auto;
+    left: auto;
+    width: auto;
+    height: auto;
+    background: transparent;
+    pointer-events: none;
+    z-index: 100;
+    padding: 0;
+  }
+  #composeModal.compose-mode-floating .compose-sheet {
+    pointer-events: auto;
+    width: 620px;
+    max-width: calc(100vw - 48px);
+    height: 520px;
+    max-height: calc(100dvh - 36px);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+  }
+  #composeModal.compose-mode-floating .compose-header {
+    padding: var(--space-2-5) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    background: var(--panel);
+  }
+  #composeModal.compose-mode-floating .compose-doc {
+    max-width: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--panel);
+  }
+  #composeModal.compose-mode-floating .compose-fields .field,
+  #composeModal.compose-mode-floating .compose-to-row,
+  #composeModal.compose-mode-floating .compose-toolbar,
+  #composeModal.compose-mode-floating .compose-footer {
+    padding-left: var(--space-4) !important;
+    padding-right: var(--space-4) !important;
+  }
+  #composeModal.compose-mode-floating .compose-body,
+  #composeModal.compose-mode-floating #composeBody.compose-body {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* 最小化模式（停靠在右下角的轻量标题栏） */
+  #composeModal.compose-mode-minimized {
+    position: fixed;
+    inset: auto;
+    right: 28px;
+    bottom: 0;
+    top: auto;
+    left: auto;
+    width: auto;
+    height: auto;
+    background: transparent;
+    pointer-events: none;
+    z-index: 100;
+    padding: 0;
+  }
+  #composeModal.compose-mode-minimized .compose-sheet {
+    pointer-events: auto;
+    width: 300px;
+    height: 44px;
+    overflow: hidden;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    background: var(--panel);
+  }
+  #composeModal.compose-mode-minimized .compose-header {
+    height: 44px;
+    padding: 0 var(--space-3);
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: none;
+    background: var(--panel);
+  }
+  #composeModal.compose-mode-minimized .compose-doc {
+    display: none !important;
+  }
+}
+
+/* 全屏模式与移动端回退 */
+#composeModal.compose-mode-fullscreen {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  pointer-events: auto;
+  z-index: 100;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#composeModal.compose-mode-fullscreen .compose-sheet {
+  width: 100%;
+  height: 100dvh;
+  border-radius: 0;
+}
+
+@media (max-width: 860px) {
+  #btnMinimizeCompose,
+  #btnMaximizeCompose {
+    display: none !important;
   }
 }
