@@ -3,7 +3,7 @@
    UI 渲染与事件绑定委托给 app-core.js
 */
 import { state, ui, accounts, saveSync, liveCount } from "./store.js";
-import { bindEvents, renderAll, visibleEmails, select } from "./app-core.js";
+import { bindEvents, renderAll, renderAccounts, visibleEmails, select } from "./app-core.js";
 import { toast } from "./app-core.js";
 
 const $ = (s) => document.querySelector(s);
@@ -47,42 +47,11 @@ function updateChrome() {
     init = "全";
   }
   setAccountUI(name, mail, init);
-  $("#btnAuthText").textContent = gmail.on ? "退出 Gmail" : "登录 Gmail";
-  $("#btnAuthMsText").textContent = outlook.on ? "退出 Outlook" : "登录 Outlook";
-  $("#btnAuthG2Text").textContent = g2.on ? "退出第二个 Gmail" : "添加第二个 Gmail";
-  $("#btnAuthG2").hidden = ui.view === "demo" && !gmail.on && !g2.on && !outlook.on;
-  // 两个账号都未登录时，分别引导到「添加第二个 Gmail / 登录 Outlook」会让人困惑：
-  // 第二个 Gmail 的前提是先登录主账号，这里在主账号未登录时禁用它并说明原因。
-  const g2Btn = $("#btnAuthG2");
-  if (!g2Btn.hidden) {
-    g2Btn.disabled = !gmail.on && !g2.on;
-    g2Btn.title = g2Btn.disabled
-      ? "先登录主 Gmail 账号，才能添加第二个"
-      : g2.on
-        ? "退出第二个 Gmail"
-        : "再登一个 Gmail 账号";
-  }
   ui.mode = ui.view === "demo" ? "demo" : "live";
   document.body.classList.toggle("live-mode", (gmail.on || g2.on || outlook.on) && ui.view !== "demo");
-  const sw = $("#accountSwitch");
-  if (!gmail.on && !g2.on && !outlook.on) sw.hidden = true;
-  else {
-    sw.hidden = false;
-    const chips = [];
-    if (liveCount() > 1) chips.push(["unified", "全部"]);
-    if (gmail.on)
-      chips.push(["gmail", gmail.profile ? (gmail.profile.emailAddress || "Gmail").split("@")[0] : "Gmail"]);
-    if (g2.on)
-      chips.push(["gmail2", g2.profile ? (g2.profile.emailAddress || "Gmail").split("@")[0] : "Gmail 2"]);
-    if (outlook.on) chips.push(["outlook", "Outlook"]);
-    chips.push(["demo", "演示"]);
-    sw.innerHTML = chips
-      .map(
-        ([v, t]) =>
-          `<button type="button" class="account-chip${ui.view === v ? " active" : ""}" data-view="${v}" aria-pressed="${ui.view === v ? "true" : "false"}">${t}</button>`
-      )
-      .join("");
-  }
+  // 账号列表（头像 + 未读角标 + 行内操作）由 app-core 统一渲染，
+  // 取代了原先并排的「登录 Gmail / 登录 Outlook / 添加第二个 Gmail」三个按钮与账号 chips。
+  renderAccounts();
   const foot = document.querySelector(".sidebar-footer");
   if (ui.view === "gmail" && gmail.profile)
     foot.innerHTML =

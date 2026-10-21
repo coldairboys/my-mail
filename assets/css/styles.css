@@ -299,8 +299,7 @@ ul {
   /* —— 隐藏纯文字块，保留图标 —— */
   .app.sidebar-collapsed .account-text,
   .app.sidebar-collapsed .nav-title,
-  .app.sidebar-collapsed .sidebar-footer,
-  .app.sidebar-collapsed .account-switch {
+  .app.sidebar-collapsed .sidebar-footer {
     display: none;
   }
 
@@ -406,6 +405,244 @@ ul {
 .account-mail {
   color: var(--text-2);
   font-size: var(--fs-xs);
+}
+
+/* ---------- 账号列表（头像 + 未读角标 + 行内操作） ---------- */
+.accounts-block {
+  margin-top: var(--space-1);
+}
+.accounts-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2-5) var(--space-1) var(--space-2-5);
+}
+.accounts-title {
+  flex: 1;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+.accounts-add {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.accounts-add:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.accounts-add svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.acct-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+.acct-item:hover {
+  background: var(--hover);
+}
+.acct-item.active {
+  background: var(--nav-active);
+}
+.acct-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+/* 头像：色相由邮箱哈希决定，深浅固定，白字在明暗主题下都清楚 */
+.acct-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: #fff;
+  background: oklch(0.55 0.09 calc(var(--hue, 214) * 1deg));
+}
+.acct-avatar-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.acct-avatar-icon svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.acct-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+.acct-name {
+  font-size: var(--fs-base);
+  line-height: var(--lh-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.acct-item.active .acct-name {
+  font-weight: 600;
+}
+.acct-mail {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.acct-unread {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.acct-more {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-right: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+.acct-item:hover .acct-more,
+.acct-item:focus-within .acct-more {
+  opacity: 1;
+}
+.acct-more:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.acct-more svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.acct-menu {
+  min-width: 172px;
+}
+/* 折叠成图标栏时：只留头像，其它文字与操作按钮隐藏 */
+.app.sidebar-collapsed .accounts-head,
+.app.sidebar-collapsed .acct-info,
+.app.sidebar-collapsed .acct-more {
+  display: none;
+}
+.app.sidebar-collapsed .acct-btn {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+  gap: 0;
+}
+.app.sidebar-collapsed .acct-unread {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  font-size: 10px;
+}
+
+/* ---------- 添加账号 / 移除账号对话框 ---------- */
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) var(--space-1);
+}
+.provider-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  text-align: left;
+}
+.provider-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.provider-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--fs-md);
+  color: #fff;
+  background: var(--accent);
+}
+.provider-gmail {
+  background: #ea4335;
+}
+.provider-outlook {
+  background: #0072c6;
+}
+.provider-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.provider-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.provider-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  font-weight: 600;
+}
+.btn-danger:hover {
+  filter: brightness(1.07);
 }
 
 .btn-compose {
@@ -1871,29 +2108,8 @@ body.density-compact .row-check {
 }
 
 /* ---------- v3.5：多账号 / 规则 / Outlook ---------- */
-.account-switch {
-  display: flex;
-  gap: var(--space-1-5);
-  flex-wrap: wrap;
-  margin-top: var(--space-2-5);
-}
-.account-switch[hidden] {
-  display: none;
-}
-.account-chip {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text-2);
-  border-radius: var(--radius-pill);
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-.account-chip.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
+/* 账号切换的横排 chips 已由侧栏的账号列表取代（.accounts-block），
+   这里只保留同样在 v3.5 引入的规则与 Outlook 按钮间距 */
 .btn-ms {
   margin-top: var(--space-2-5);
 }

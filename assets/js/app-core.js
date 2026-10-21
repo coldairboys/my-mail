@@ -114,6 +114,10 @@ const ICONS = {
   refresh: P(
     '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.15"/><polyline points="1 20 1 14 7 14"/>'
   ),
+  plus: P('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  layers: P(
+    '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'
+  ),
   minimize: P('<line x1="5" y1="12" x2="19" y2="12"/>'),
   maximize: P(
     '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'
@@ -252,6 +256,99 @@ function folderCount(fid) {
 
 function labelById(id) {
   return LABELS.find((l) => l.id === id);
+}
+
+/* ---------------- 账号列表（参考 inboxed 的账号 rail：头像 + 未读角标 + 行内操作） ---------------- */
+// 同一个邮箱每次得到同一个色相，头像颜色稳定不跳变
+function accountHue(seed) {
+  let h = 0;
+  for (const ch of String(seed || "?")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+// 只统计收件箱里真正未读、且未归档的邮件，和侧栏文件夹计数的口径一致
+function accountUnread(emails) {
+  return (emails || []).filter((m) => m.unread && m.folder === "inbox" && !m.archived).length;
+}
+function accountLabel(provider) {
+  if (provider === "outlook") return "Outlook";
+  if (provider === "gmail2") return "Gmail 2";
+  return "Gmail";
+}
+function accountEntries() {
+  const rows = [];
+  const live = liveCount();
+  // 统一收件箱排在最前，只有登录了两个以上真实账号时才出现
+  if (live > 1) {
+    let total = 0;
+    for (const a of accounts.values()) if (a.on) total += accountUnread(a.emails);
+    rows.push({
+      key: "unified",
+      name: "全部账号",
+      mail: "统一收件箱",
+      unread: total,
+      icon: "layers",
+      removable: false,
+    });
+  }
+  rows.push({
+    key: "demo",
+    name: "演示数据",
+    mail: "demo@mymail.app",
+    unread: accountUnread(state.emails),
+    icon: null,
+    removable: false,
+  });
+  for (const key of ["gmail", "gmail2", "outlook"]) {
+    const acc = accounts.get(key);
+    if (!acc || !acc.on) continue;
+    const mail = acc.profile?.emailAddress || "";
+    rows.push({
+      key,
+      name: mail ? mail.split("@")[0] : accountLabel(key),
+      mail: mail || accountLabel(key) + "（已连接）",
+      unread: accountUnread(acc.emails),
+      hue: accountHue(mail || key),
+      icon: null,
+      removable: true,
+      provider: key,
+    });
+  }
+  return rows;
+}
+function renderAccounts() {
+  const ul = $("#accountList");
+  if (!ul) return;
+  const rows = accountEntries();
+  ul.innerHTML = rows
+    .map((r) => {
+      const active = ui.view === r.key;
+      const avatar = r.icon
+        ? `<span class="acct-avatar acct-avatar-icon" aria-hidden="true">${ICONS[r.icon] || ""}</span>`
+        : `<span class="acct-avatar" style="--hue:${
+            r.hue ?? 214
+          }" aria-hidden="true">${esc((r.name || "?").trim().charAt(0).toUpperCase())}</span>`;
+      const badge = r.unread
+        ? `<span class="acct-unread" title="${r.unread} 封未读">${r.unread > 99 ? "99+" : r.unread}</span>`
+        : "";
+      const more = r.removable
+        ? `<button type="button" class="acct-more" data-acct-menu="${r.key}" aria-label="${esc(
+            r.name
+          )} 的账号操作" title="账号操作"><span data-icon="more" aria-hidden="true"></span></button>`
+        : "";
+      return (
+        `<li class="acct-item${active ? " active" : ""}">` +
+        `<button type="button" class="acct-btn" data-acct-view="${r.key}" aria-current="${
+          active ? "true" : "false"
+        }" title="${esc(r.mail)}">` +
+        avatar +
+        `<span class="acct-info"><span class="acct-name">${esc(r.name)}</span>` +
+        `<span class="acct-mail">${esc(r.mail)}</span></span>` +
+        badge +
+        `</button>${more}</li>`
+      );
+    })
+    .join("");
+  hydrateIcons(ul);
 }
 
 /* ---------------- 渲染（列表采用增量对比，避免搜索抖动时全量重绘闪烁） ---------------- */
@@ -749,6 +846,7 @@ function renderReading() {
 
 export function renderAll() {
   invalidateVisible();
+  renderAccounts();
   renderNav();
   renderList();
   renderReading();
@@ -2005,24 +2103,129 @@ export function bindEvents(handlers) {
     setView("demo");
     toast("演示模式：数据为虚构示例");
   };
-  $("#btnAuth").onclick = () => {
-    closeSidebar();
-    handlers.handleAuthGmailToggle();
+  /* ---------------- 账号管理 ---------------- */
+  // 待确认移除的账号：key → { label, run }
+  let pendingRemove = null;
+  const REMOVE_HANDLERS = {
+    gmail: () => handlers.handleAuthGmailToggle,
+    gmail2: () => handlers.handleAuthG2Toggle,
+    outlook: () => handlers.handleAuthMsToggle,
   };
-  $("#btnAuthMs").onclick = () => {
+
+  function openAddAccount() {
     closeSidebar();
-    handlers.handleAuthMsToggle();
+    const gmailOk = Boolean(window.MyMailGmail && window.MyMailGmail.configured());
+    const msOk = Boolean(window.MyMailOutlook && window.MyMailOutlook.configured());
+    // 未配置 Client ID 时如实说明，而不是让用户点了没反应
+    const notes = [];
+    if (!gmailOk) notes.push("Gmail 尚未配置 Client ID（见 README 的「接入 Gmail」）。");
+    if (!msOk) notes.push("Outlook 尚未配置 Client ID（见 README 的「接入 Outlook」）。");
+    $("#addAccountNote").textContent = notes.join(" ");
+    $("#addAccountModal").hidden = false;
+    $("#addAccountModal").setAttribute("aria-hidden", "false");
+    trapFocus($("#addAccountModal"));
+  }
+  function closeAddAccount() {
+    $("#addAccountModal").hidden = true;
+    $("#addAccountModal").setAttribute("aria-hidden", "true");
+    releaseTrap();
+  }
+  function askRemoveAccount(key) {
+    const acc = accounts.get(key);
+    const mail = acc?.profile?.emailAddress || "";
+    const label = mail || accountLabel(key);
+    pendingRemove = { key, run: REMOVE_HANDLERS[key] };
+    $("#removeAccountText").textContent = `确定要移除「${label}」吗？`;
+    $("#removeAccountModal").hidden = false;
+    $("#removeAccountModal").setAttribute("aria-hidden", "false");
+    trapFocus($("#removeAccountModal"));
+    // 焦点默认落在「取消」上，误触也不会直接移除
+    $("#btnCancelRemove").focus();
+  }
+  function closeRemoveAccount() {
+    $("#removeAccountModal").hidden = true;
+    $("#removeAccountModal").setAttribute("aria-hidden", "true");
+    releaseTrap();
+    pendingRemove = null;
+  }
+  // 账号行右侧「⋯」菜单：全部标已读 / 移除账号
+  function closeAccountMenu() {
+    document.querySelectorAll(".acct-menu").forEach((m) => m.remove());
+    document.removeEventListener("click", onDocClickCloseMenu, true);
+  }
+  function onDocClickCloseMenu(e) {
+    if (!e.target.closest(".acct-menu") && !e.target.closest("[data-acct-menu]")) closeAccountMenu();
+  }
+  function openAccountMenu(key, anchor) {
+    closeAccountMenu();
+    const acc = accounts.get(key);
+    if (!acc) return;
+    const unread = accountUnread(acc.emails);
+    const menu = document.createElement("div");
+    menu.className = "dropdown acct-menu";
+    menu.setAttribute("role", "menu");
+    menu.innerHTML =
+      `<button type="button" role="menuitem" data-acct-action="readall"${
+        unread ? "" : " disabled"
+      }>全部标为已读${unread ? `（${unread}）` : ""}</button>` +
+      `<button type="button" role="menuitem" class="danger" data-acct-action="remove">移除账号…</button>`;
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    menu.style.position = "fixed";
+    menu.style.top = Math.round(r.bottom + 4) + "px";
+    menu.style.left = Math.max(8, Math.min(Math.round(r.left - 150), window.innerWidth - 200)) + "px";
+    menu.style.zIndex = "70";
+    menu.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-acct-action]");
+      if (!btn || btn.disabled) return;
+      closeAccountMenu();
+      if (btn.dataset.acctAction === "readall") {
+        acc.emails.forEach((m) => {
+          if (m.folder === "inbox" && !m.archived) m.unread = false;
+        });
+        save();
+        renderAll();
+        toast("该账号收件箱已全部标为已读");
+      } else if (btn.dataset.acctAction === "remove") {
+        askRemoveAccount(key);
+      }
+    });
+    setTimeout(() => document.addEventListener("click", onDocClickCloseMenu, true), 0);
+  }
+
+  $("#btnAddAccount").onclick = openAddAccount;
+  $("#btnCloseAddAccount").onclick = closeAddAccount;
+  $("#btnAddGmail").onclick = () => {
+    closeAddAccount();
+    handlers.doGoogleLogin();
   };
-  $("#btnAuthG2").onclick = () => {
-    closeSidebar();
-    handlers.handleAuthG2Toggle();
+  $("#btnAddOutlook").onclick = () => {
+    closeAddAccount();
+    handlers.doMsLogin();
   };
-  $("#accountSwitch").addEventListener("click", (e) => {
-    const chip = e.target.closest("[data-view]");
-    if (chip) {
-      closeSidebar();
-      setView(chip.dataset.view);
+  $("#btnCloseRemoveAccount").onclick = closeRemoveAccount;
+  $("#btnCancelRemove").onclick = closeRemoveAccount;
+  $("#btnConfirmRemove").onclick = () => {
+    // REMOVE_HANDLERS 里存的是「取 handler 的 getter」，这里取出来再执行
+    const task = pendingRemove;
+    closeRemoveAccount();
+    if (!task) return;
+    const run = task.run && task.run();
+    if (typeof run === "function") run();
+  };
+  // 账号行：点主体切换视图，点「⋯」开菜单
+  $("#accountList").addEventListener("click", (e) => {
+    const more = e.target.closest("[data-acct-menu]");
+    if (more) {
+      e.stopPropagation();
+      openAccountMenu(more.dataset.acctMenu, more);
+      return;
     }
+    const view = e.target.closest("[data-acct-view]");
+    if (!view) return;
+    closeSidebar();
+    closeAccountMenu();
+    setView(view.dataset.acctView);
   });
 
   function applyDensity() {
@@ -2042,4 +2245,13 @@ export function bindEvents(handlers) {
 // 暴露给 app-init.js
 // 注意：renderAll / select / visibleEmails 已在上方以 export function 声明导出，
 // 此处若再次列出会触发 "Duplicate export" 语法错误，导致整个模块加载失败。
-export { hydrateIcons, applyTheme, renderNav, renderList, renderReading, invalidateVisible, ICONS };
+export {
+  hydrateIcons,
+  applyTheme,
+  renderAccounts,
+  renderNav,
+  renderList,
+  renderReading,
+  invalidateVisible,
+  ICONS,
+};

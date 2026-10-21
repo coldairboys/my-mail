@@ -33,20 +33,33 @@
     <div class="app" id="app">
       <!-- ===== 左栏：账号 + 文件夹 + 标签 ===== -->
       <aside class="sidebar" id="sidebar" aria-label="导航边栏">
-        <div class="account">
-          <div class="avatar avatar-account" id="accountAvatar" aria-hidden="true">Y</div>
-          <div class="account-text">
-            <div class="account-name" id="accountName">Yangming</div>
-            <div class="account-mail" id="accountMail">demo@mymail.app</div>
+        <div class="sidebar-top">
+          <div class="account">
+            <div class="avatar avatar-account" id="accountAvatar" aria-hidden="true">Y</div>
+            <div class="account-text">
+              <div class="account-name" id="accountName">Yangming</div>
+              <div class="account-mail" id="accountMail">demo@mymail.app</div>
+            </div>
+            <button
+              type="button"
+              class="icon-btn sidebar-close"
+              id="btnCloseSidebar"
+              aria-label="关闭菜单"
+              data-icon="x"
+            ></button>
           </div>
-          <button
-            type="button"
-            class="icon-btn sidebar-close"
-            id="btnCloseSidebar"
-            aria-label="关闭菜单"
-            data-icon="x"
-          ></button>
         </div>
+
+        <!-- 账号列表：每个账号一行（头像 + 名称/邮箱 + 未读角标），点行切换视图 -->
+        <section class="accounts-block" aria-label="账号列表">
+          <div class="accounts-head">
+            <span class="accounts-title">账号</span>
+            <button type="button" class="accounts-add" id="btnAddAccount" aria-label="添加账号" title="添加账号">
+              <span data-icon="plus" aria-hidden="true"></span>
+            </button>
+          </div>
+          <ul class="account-list" id="accountList" role="list"></ul>
+        </section>
 
         <button type="button" class="btn-compose" id="btnCompose" aria-label="写邮件">
           <span data-icon="edit" aria-hidden="true"></span>写邮件
@@ -60,16 +73,6 @@
         <button type="button" class="btn-ghost" id="btnStats" aria-label="发件人分析">
           <span data-icon="chart" aria-hidden="true"></span>发件人分析
         </button>
-        <button type="button" class="btn-ghost" id="btnAuth" aria-label="Gmail 登录或退出">
-          <span data-icon="mail" aria-hidden="true"></span><span id="btnAuthText">登录 Gmail</span>
-        </button>
-        <button type="button" class="btn-ghost" id="btnAuthMs" aria-label="Outlook 登录或退出">
-          <span data-icon="mail" aria-hidden="true"></span><span id="btnAuthMsText">登录 Outlook</span>
-        </button>
-        <button type="button" class="btn-ghost" id="btnAuthG2" hidden aria-label="添加或退出第二个 Gmail">
-          <span data-icon="mail" aria-hidden="true"></span><span id="btnAuthG2Text">添加第二个 Gmail</span>
-        </button>
-        <div class="account-switch" id="accountSwitch" hidden role="tablist" aria-label="账号切换"></div>
 
         <nav class="nav-section" aria-label="邮件文件夹">
           <div class="nav-title" id="navFolderTitle">邮件</div>
@@ -393,6 +396,71 @@
     </div>
 
     <!-- ===== 发件人分析弹窗 ===== -->
+    <!-- ===== 添加账号 ===== -->
+    <div
+      class="modal-backdrop"
+      id="addAccountModal"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-label="添加账号"
+      aria-hidden="true"
+    >
+      <div class="modal modal-small">
+        <header class="modal-header">
+          <span>添加账号</span>
+          <button type="button" class="icon-btn" id="btnCloseAddAccount" aria-label="关闭" data-icon="x"></button>
+        </header>
+        <p class="setting-note">
+          选择要连接的邮箱服务。密码只在 Google / Microsoft 官方页面输入，本应用拿不到；令牌只存本页会话。
+        </p>
+        <div class="provider-list">
+          <button type="button" class="provider-card" id="btnAddGmail">
+            <span class="provider-mark provider-gmail" aria-hidden="true">G</span>
+            <span class="provider-text">
+              <span class="provider-name">Gmail</span>
+              <span class="provider-desc">Google 账号，可添加多个</span>
+            </span>
+          </button>
+          <button type="button" class="provider-card" id="btnAddOutlook">
+            <span class="provider-mark provider-outlook" aria-hidden="true">O</span>
+            <span class="provider-text">
+              <span class="provider-name">Outlook</span>
+              <span class="provider-desc">Microsoft 个人账号</span>
+            </span>
+          </button>
+        </div>
+        <p class="setting-note" id="addAccountNote"></p>
+      </div>
+    </div>
+
+    <!-- ===== 移除账号确认 ===== -->
+    <div
+      class="modal-backdrop"
+      id="removeAccountModal"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-label="移除账号"
+      aria-hidden="true"
+    >
+      <div class="modal modal-small">
+        <header class="modal-header">
+          <span>移除账号</span>
+          <button type="button" class="icon-btn" id="btnCloseRemoveAccount" aria-label="关闭" data-icon="x"></button>
+        </header>
+        <p class="setting-note" id="removeAccountText"></p>
+        <p class="setting-note">
+          真实邮件只在页面内存中，移除后本页会清空该账号的邮件与令牌，服务器上的邮件与账号本身不受影响，之后可以重新添加。
+        </p>
+        <footer class="modal-footer">
+          <span class="modal-hint"></span>
+          <button type="button" class="btn-secondary" id="btnCancelRemove">取消</button>
+          <button type="button" class="btn-danger" id="btnConfirmRemove">移除账号</button>
+        </footer>
+      </div>
+    </div>
+
     <div
       class="modal-backdrop"
       id="statsModal"
