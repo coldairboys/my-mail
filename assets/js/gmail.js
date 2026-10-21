@@ -1,10 +1,11 @@
-/* My Mail · Gmail 接入层（v4 · PKCE 授权码流程）
+/* My Mail · Gmail 接入层（v4.1 · 隐式流程）
    安全模型：
-   - 登录走 OAuth 2.0 Authorization Code + PKCE，密码只在 Google 官方页面输入
-   - 本文件只用 Client ID（公开标识），不需要 client_secret；PKCE 用 S256 校验
-   - 流程：生成 code_verifier / code_challenge + state → 跳转 Google 授权 → 回调带 ?code= + state → 前端带 verifier 换取 access_token
+   - 登录走 OAuth 2.0 隐式流程（response_type=token），密码只在 Google 官方页面输入
+   - 本文件只用 Client ID（公开标识），不需要、也不能使用 client_secret：
+     Google 对「Web 应用」类型客户端在授权码换令牌时强制要求 client_secret，
+     纯静态网页无法安全持有密钥，故授权码 + PKCE 流程在本项目不可用（v4 曾误用，已改回）
+   - 流程：生成 state → 跳转 Google 授权 → 回调 URL 片段带 #access_token → 前端收取并立即清理 URL
    - access_token 只存 sessionStorage（关标签页即失效，约 1 小时），不写 localStorage、不上传任何服务器
-   - 回调后立即校验 state 并用 history.replaceState 清理 URL，避免 token / code 进历史记录
    - 邮件数据只在浏览器内存里，页面关掉即消失
    - 权限范围：gmail.readonly（只读）+ gmail.send（发送） */
 
@@ -64,7 +65,7 @@
       return window.location.origin + window.location.pathname;
     }
 
-    // 兼容旧版 implicit 流程残留的 hash token（静默迁移）：若 URL 仍有 #access_token=，尝试收取并清理
+    // 隐式流程的令牌收取：URL 片段带 #access_token= 时收取并立即清理
     function consumeLegacyHashToken() {
       if (!window.location.hash || !window.location.hash.includes("access_token=")) return false;
       try {
@@ -80,29 +81,22 @@
       return false;
     }
 
-    // ---------- 发起授权（PKCE） ----------
+    // ---------- 发起授权（隐式流程） ----------
     async function startRedirectLogin() {
       if (!configured()) throw new Error("尚未配置 GOOGLE_CLIENT_ID（见 README 的接入步骤）");
-      // 生成 PKCE verifier / challenge + state
-      const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
-      const challenge = await pkceChallenge(verifier);
       const state = randomString(24);
       try {
-        sessionStorage.setItem(VERIFIER_KEY, verifier);
         sessionStorage.setItem(STATE_KEY, state);
         sessionStorage.setItem("mymail-login-target", suffix);
       } catch (e) {}
       const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       u.searchParams.set("client_id", CFG.GOOGLE_CLIENT_ID);
       u.searchParams.set("redirect_uri", redirectUri());
-      u.searchParams.set("response_type", "code");
+      u.searchParams.set("response_type", "token");
       u.searchParams.set("scope", CFG.GMAIL_SCOPES);
-      u.searchParams.set("code_challenge", challenge);
-      u.searchParams.set("code_challenge_method", "S256");
       u.searchParams.set("state", state);
-      u.searchParams.set("access_type", "online");
       u.searchParams.set("include_granted_scopes", "true");
-      u.searchParams.set("prompt", "consent");
+      u.searchParams.set("prompt", "select_account");
       window.location.assign(u.toString());
     }
 
@@ -143,7 +137,7 @@
 
     // 消费回调中的 ?code=，校验 state 后用 verifier 换取 token；返回 { ok, error } 或 null（无回调）
     async function consumeRedirectCode() {
-      // 兼容旧 hash token 场景
+      // 隐式流程：令牌经 URL 片段返回
       if (window.location.hash && window.location.hash.includes("access_token=")) {
         const ok = consumeLegacyHashToken();
         return ok ? { ok: true } : null;
@@ -173,57 +167,14 @@
         };
       if (!code) return null;
 
-      // 校验 state（防 CSRF）
-      let expectedState = null;
-      try {
-        expectedState = sessionStorage.getItem(STATE_KEY);
-      } catch (e) {}
-      if (expectedState && state !== expectedState)
-        return { error: "登录校验失败（state 不匹配），请重新登录" };
-      const verifier = (() => {
-        try {
-          return sessionStorage.getItem(VERIFIER_KEY);
-        } catch (e) {
-          return null;
-        }
-      })();
-      if (!verifier) return { error: "授权校验信息丢失，请重新登录" };
-
-      // 换取 token（PKCE 公开客户端，无需 client_secret）
-      const body = new URLSearchParams({
-        client_id: CFG.GOOGLE_CLIENT_ID,
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri(),
-        code_verifier: verifier,
-      });
-      let data = {};
-      try {
-        const r = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: body.toString(),
-        });
-        data = await r.json().catch(() => ({}));
-        if (!r.ok || !data.access_token) {
-          // 若 PKCE 交换被拒（部分旧客户端类型要求 secret），给出明确指引
-          const hint = data.error_description || data.error || "HTTP " + r.status;
-          return {
-            error:
-              "令牌交换失败：" +
-              hint +
-              "（若持续失败，请在 Google 控制台将 OAuth 客户端改为“Web 应用”并确保已登记重定向 URI 为本站地址）",
-          };
-        }
-      } catch (e) {
-        return { error: "令牌交换网络失败：" + (e.message || e) };
-      }
-      storeToken(data.access_token, Number(data.expires_in || 3600));
+      // 走到这里说明回跳带的是旧版授权码流程的 ?code=：该流程已停用
+      // （Google 对 Web 应用客户端换令牌强制要求 client_secret，静态网页无法使用）。
+      // URL 上的 code/state 已在上方清理，这里只提示重新登录——新登录走隐式流程。
       try {
         sessionStorage.removeItem(VERIFIER_KEY);
         sessionStorage.removeItem(STATE_KEY);
       } catch (e) {}
-      return { ok: true };
+      return { error: "登录方式已更新，请重新点击登录" };
     }
 
     // 供 app.js 兼容调用：旧版 consumeRedirectToken 是同步布尔，新版是异步 code 交换
