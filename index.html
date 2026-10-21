@@ -596,12 +596,17 @@
       </div>
     </div>
 
-    <!-- 基础配置与数据（同步，保证 window.MYMAIL_CONFIG / LABELS 等就绪） -->
-    <script src="assets/js/config.js"></script>
-    <script src="assets/js/data.js"></script>
-    <script src="assets/js/gmail.js"></script>
-    <script src="assets/js/outlook.js"></script>
-    <!-- 新模块化入口（ES Module，deferred）；旧 app.js 保留作回退，不再默认加载 -->
+    <!-- 基础配置与接入层。
+         这些文件必须带 type="module"：否则 Vite 构建时无法打包，
+         dist 里不会复制它们，部署后 4 个 script 全部 404、应用起不来。
+         ES Module 按文档顺序 deferred 执行，config 仍先于 gmail / outlook，
+         它们之间的 window.MYMAIL_CONFIG 依赖关系不变。 -->
+    <script type="module" src="assets/js/config.js"></script>
+    <script type="module" src="assets/js/gmail.js"></script>
+    <script type="module" src="assets/js/outlook.js"></script>
+    <!-- 新模块化入口；旧 app.js 保留作回退，不再默认加载。
+         演示数据由 data.module.js 提供（store.js / app-core.js 直接 import），
+         原先的 data.js 是它的经典 script 副本，职责重复，已移除。 -->
     <script type="module" src="assets/js/app-init.js"></script>
     <noscript
       ><p style="text-align: center; padding: 24px">My Mail 需要启用 JavaScript 才能使用。</p></noscript

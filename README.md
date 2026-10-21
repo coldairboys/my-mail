@@ -53,14 +53,18 @@ GitHub Pages：**https://coldairboys.github.io/my-mail/**
 仓库同时提供了 Vite / ESLint / Prettier 的开发脚本（见 `package.json`）。
 
 ```bash
-npm install        # 安装开发依赖（vite / eslint / prettier），仅开发时需要
+npm install        # 必须先跑这一步：装 vite / eslint / prettier
+                   # 没装就直接 npm run dev 会报「'vite' 不是内部或外部命令」
 npm run dev        # 启动 Vite 开发服务器（默认 http://localhost:5173）
 npm run build      # 构建到 dist/
 npm run preview    # 预览构建产物（默认 http://localhost:4173）
 npm run lint       # ESLint 检查 assets/js
-npm run format     # Prettier 格式化 assets 下的 js/css/html
+npm run format     # Prettier 格式化 assets 下的 js/css/html 与根目录配置文件
 npm run format:check  # 只检查格式、不写入
 ```
+
+> 首次 clone 后 `node_modules/` 不存在，一定要先 `npm install`。
+> 依赖版本记录在 `package-lock.json` 里，CI 上可用 `npm ci` 精确复现。
 
 不装 npm 也能用，起一个静态服务器即可（推荐，因为入口是 ES Module）：
 
@@ -82,10 +86,9 @@ my-mail/
 │   ├── css/
 │   │   └── styles.css          # 全部样式（明暗双主题变量、三栏布局、手机端抽屉与左滑）
 │   └── js/
-│       ├── config.js           # 全局配置：Google Client ID、MS Client ID、Gmail 权限范围（普通 script）
+│       ├── config.js           # 全局配置：Google Client ID、MS Client ID、Gmail 权限范围
 │       ├── config.module.js    # 配置的 ES Module 包装：导出 MYMAIL_CONFIG 并回挂 window（当前入口未引用）
-│       ├── data.js             # 演示数据（普通 script 版），供旧 app.js 回退路径读 window 全局
-│       ├── data.module.js      # 演示数据（ES Module 版）：LABELS / FOLDERS / SEED_EMAILS
+│       ├── data.module.js      # 演示数据：LABELS / FOLDERS / SEED_EMAILS（中英对照）
 │       ├── utils.js            # 工具函数：HTML 转义、头像首字母与配色、防抖、rAF 节流、文件大小格式化
 │       ├── store.js            # 状态仓库：localStorage 持久化（含 quota 兜底）、多账号 Map、当前视图取数
 │       ├── app-core.js         # 核心逻辑：导航/列表/阅读区渲染、事件绑定、快捷键、主题密度、写信与设置
@@ -102,9 +105,14 @@ my-mail/
 └── README.md
 ```
 
-`index.html` 的加载顺序是：`config.js` → `data.js` → `gmail.js` → `outlook.js`
-（四个普通 script，同步执行，保证 `window.MYMAIL_CONFIG` 与全局数据就绪），
-再由 `<script type="module" src="assets/js/app-init.js">` 拉起模块化入口。
+`index.html` 的加载顺序是：`config.js` → `gmail.js` → `outlook.js` → `app-init.js`，
+四个都是 `<script type="module">`，按文档顺序 deferred 执行，
+所以 `gmail.js` / `outlook.js` 读到 `window.MYMAIL_CONFIG` 时配置已经就绪。
+
+> 这些文件必须带 `type="module"`：普通 `<script src>` 在 Vite 构建时无法被打包，
+> `dist/` 里不会复制它们，部署后全部 404、应用起不来。
+> 同理，演示数据统一由 `data.module.js` 提供（`store.js` / `app-core.js` 直接 `import`），
+> 不再维护一份经典 script 副本，避免两份数据互相不同步。
 
 ## 接入 Gmail（真实邮箱，只读 + 发送）
 
