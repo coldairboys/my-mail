@@ -23,6 +23,8 @@ const DEFAULTS = {
   autoRead: true,
   shortcuts: true,
   fetchCount: 40,
+  autoRefreshSec: 0, // 自动刷新间隔（秒），0 = 关闭
+  translateNoticeShown: false, // 翻译隐私提示是否已展示过
   seedVersion: 0,
   sidebarCollapsed: false,
   demoChosen: false,

@@ -128,6 +128,15 @@
   --google-fg: #3c4043;
   --google-border: #dadce0;
 
+  /* ---- 品牌色（固定不随主题变化） ---- */
+  --brand-google: #ea4335;
+  --brand-outlook: #0072c6;
+  --color-white: #ffffff;
+
+  /* ---- 选中态背景：由 --accent 统一派生，消除硬编码蓝色与割裂感 ---- */
+  --accent-selected: color-mix(in srgb, var(--accent) 10%, var(--list-bg));
+  --accent-selected-hover: color-mix(in srgb, var(--accent) 15%, var(--list-bg));
+
   color-scheme: light;
   font-size: 15px;
 }
@@ -480,7 +489,7 @@ ul {
   justify-content: center;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: #fff;
+  color: var(--avatar-fg);
   background: oklch(0.55 0.09 calc(var(--hue, 214) * 1deg));
 }
 .acct-avatar-icon {
@@ -611,14 +620,14 @@ ul {
   justify-content: center;
   font-weight: 700;
   font-size: var(--fs-md);
-  color: #fff;
+  color: var(--color-white);
   background: var(--accent);
 }
 .provider-gmail {
-  background: #ea4335;
+  background: var(--brand-google);
 }
 .provider-outlook {
-  background: #0072c6;
+  background: var(--brand-outlook);
 }
 .provider-text {
   display: flex;
@@ -636,7 +645,7 @@ ul {
 }
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--color-white);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   font-weight: 600;
@@ -900,7 +909,7 @@ ul {
   inset: 0;
   /* 危险色底上的白字：--danger 两套主题同值，白字对比度始终达标，故不走 --on-accent */
   background: var(--danger);
-  color: #ffffff;
+  color: var(--color-white);
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -920,18 +929,13 @@ ul {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2-5);
-  transition: background var(--dur-fast) ease;
+  transition:
+    background var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease;
 }
 .mail-item-inner::before {
   content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3.5px;
-  background: transparent;
-  border-radius: 0 3px 3px 0;
-  transition: background var(--dur-fast) ease;
+  display: none;
 }
 .mail-item-inner.anim {
   transition: transform var(--dur-fast) ease;
@@ -940,7 +944,7 @@ ul {
   background: var(--hover);
 }
 
-/* 列表发件人彩色头像 */
+/* 列表发件人彩色头像：平整去阴影，靠行间 1px 线分隔，长列表滚动更安静 */
 .mail-avatar {
   width: 30px;
   height: 30px;
@@ -953,7 +957,7 @@ ul {
   justify-content: center;
   flex: none;
   margin-top: 2px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 .row-check {
   width: 30px;
@@ -971,21 +975,13 @@ ul {
   min-width: 0;
 }
 
-/* 选中态：微质感高雅设计（替换深蓝满铺） */
-.mail-item.selected .mail-item-inner::before {
-  background: var(--accent);
-}
+/* 选中态：微质感高雅设计（带 3px 左侧 accent 竖条作为锚点，过渡平滑无跳变） */
 .mail-item.selected .mail-item-inner {
-  background: var(--accent-soft);
+  background: var(--accent-selected);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .mail-item.selected .mail-item-inner:hover {
-  background: #dfe9f7;
-}
-[data-theme="dark"] .mail-item.selected .mail-item-inner {
-  background: rgba(90, 162, 255, 0.12);
-}
-[data-theme="dark"] .mail-item.selected .mail-item-inner:hover {
-  background: rgba(90, 162, 255, 0.18);
+  background: var(--accent-selected-hover);
 }
 .mail-item.selected .mail-from {
   color: var(--accent);
@@ -1016,9 +1012,15 @@ ul {
   background: var(--accent);
   flex: none;
   position: absolute;
-  left: 5px;
-  top: 50%;
+  left: 6px; /* 居于选中竖条(3.5px)与头像之间的空隙中央 */
+  /* 与行首元素（头像/勾选框）垂直居中：padding-top + margin-top + 高度/2。
+     不用 top:50% —— 那是对整行居中，行高随摘要行数变化，蓝点会偏离头像。 */
+  top: calc(var(--space-3) + 2px + 15px);
   transform: translateY(-50%);
+}
+body.density-compact .unread-dot {
+  /* 紧凑模式：头像 24px、无 margin-top、行内边距 --space-1-5 */
+  top: calc(var(--space-1-5) + 12px);
 }
 .mail-from {
   font-weight: 500;
@@ -1071,7 +1073,7 @@ ul {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 1px 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-soft);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-fast) ease;
@@ -1205,6 +1207,10 @@ ul {
   align-items: center;
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
+  transition: border-color var(--dur-fast) ease;
+}
+.reading-pane.has-email .reading-toolbar {
+  border-bottom-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 .toolbar-left,
 .toolbar-right {
@@ -1250,6 +1256,8 @@ ul {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--accent);
 }
 .reading-title {
   font-size: var(--fs-xl);
@@ -1513,12 +1521,41 @@ ul {
   justify-content: center;
   color: var(--text-3);
   gap: var(--space-2-5);
+  padding: var(--space-6);
+  user-select: none;
 }
 .reading-empty[hidden] {
   display: none;
 }
-.reading-empty-icon {
-  font-size: calc(var(--fs-xl) * 2); /* 由 6 档字号派生的展示型大字 */
+.reading-empty-illustration {
+  width: calc(var(--fs-xl) * 3);
+  height: calc(var(--fs-xl) * 3);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent) 8%, var(--hover));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-1);
+}
+.reading-empty-svg {
+  width: calc(var(--fs-xl) * 1.8);
+  height: calc(var(--fs-xl) * 1.8);
+}
+.empty-svg-bg {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.empty-svg-line {
+  stroke: var(--accent);
+}
+.empty-svg-sub {
+  stroke: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.reading-empty-title {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--text-2);
 }
 
 /* ---------- 弹窗 ---------- */
@@ -2754,7 +2791,7 @@ body.density-compact .mail-row-1 {
     max-height: calc(100dvh - 36px);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border: 1px solid var(--border);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
     background: var(--panel);
@@ -2849,4 +2886,214 @@ body.density-compact .mail-row-1 {
   #btnMaximizeCompose {
     display: none !important;
   }
+}
+
+/* 列表分页哨兵：滚动接近底部时被 IntersectionObserver 命中，追加下一页 */
+.list-sentinel {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0;
+  list-style: none;
+}
+.list-sentinel-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: sentinel-spin 0.8s linear infinite;
+}
+@keyframes sentinel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   v4.1 视觉打磨层（叠加在既有规则之上，不改动 token 语义）
+   原则：只做质感与动效的克制提升，不改变布局与信息密度。
+   ============================================================ */
+
+/* ---- 统一细滚动条：随主题走，不再用系统默认的宽灰条 ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-3) 55%, transparent) transparent;
+}
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-3) 45%, transparent);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-2) 60%, transparent);
+  background-clip: content-box;
+}
+
+/* ---- 文本选区与数字对齐 ---- */
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.nav-count,
+.acct-unread,
+.mail-date,
+.meta-date,
+.attach-size,
+.stats-count {
+  font-variant-numeric: tabular-nums; /* 计数/日期跳动更小 */
+}
+
+/* ---- 侧栏：激活项带一点品牌色，图标同步点亮 ---- */
+.nav-list li {
+  transition:
+    background var(--dur-fast) ease,
+    color var(--dur-fast) ease;
+}
+.nav-list li.active {
+  color: var(--accent);
+}
+.nav-list li.active .nav-icon,
+.nav-list li.active .label-dot + span + .nav-count {
+  color: var(--accent);
+}
+
+/* ---- 同步状态点：呼吸感（尊重「减少动态效果」偏好） ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .sync-dot {
+    animation: sync-pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes sync-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 4px transparent;
+    }
+  }
+}
+
+/* ---- 按钮：统一的过渡与按压反馈 ---- */
+.btn-primary,
+.btn-secondary,
+.chip-btn,
+.quick-tool-btn {
+  transition:
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease,
+    transform var(--dur-fast) ease,
+    filter var(--dur-fast) ease;
+}
+.btn-primary {
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.btn-primary:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.btn-primary:active,
+.btn-secondary:active,
+.chip-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+.btn-secondary:hover,
+.chip-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.chip-btn.primary:hover {
+  background: color-mix(in srgb, var(--accent-soft) 80%, var(--accent) 12%);
+}
+
+/* ---- 头像：内圈细环增加立体感（随主题自动适配） ---- */
+.avatar,
+.mail-avatar,
+.acct-avatar,
+.quick-reply-avatar {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* ---- 阅读区：标题更收口气，星标悬停放大 ---- */
+.reading-title {
+  letter-spacing: -0.01em;
+}
+.star-btn {
+  transition:
+    transform var(--dur-fast) ease,
+    color var(--dur-fast) ease;
+}
+.star-btn:hover {
+  transform: scale(1.15);
+}
+.star-btn:active {
+  transform: scale(0.95);
+}
+
+/* ---- Toast：入场动效 + 轻磨砂 ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-in var(--dur-base) cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+}
+.toast {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ---- 弹窗遮罩：轻磨砂 + 入场淡入，层次更清楚 ---- */
+.modal-backdrop {
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
+  animation: backdrop-in var(--dur-base) ease;
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- 登录页：顶部一片品牌色晕光，摆脱纯平底色 ---- */
+.login-screen {
+  background:
+    radial-gradient(
+      1100px 520px at 50% -8%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      900px 500px at 85% 108%,
+      color-mix(in srgb, var(--accent) 9%, transparent),
+      transparent 60%
+    ),
+    var(--bg);
+}
+.login-logo {
+  transition: transform var(--dur-base) ease;
+}
+.login-logo:hover {
+  transform: translateY(-2px) rotate(-2deg);
 }

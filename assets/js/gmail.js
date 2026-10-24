@@ -1,4 +1,4 @@
-/* My Mail · Gmail 接入层（v4.1 · 隐式流程）
+/* My Mail · Gmail 接入层（v4.1 · 隐式流程 + 列表懒加载）
    安全模型：
    - 登录走 OAuth 2.0 隐式流程（response_type=token），密码只在 Google 官方页面输入
    - 本文件只用 Client ID（公开标识），不需要、也不能使用 client_secret：
@@ -7,7 +7,14 @@
    - 流程：生成 state → 跳转 Google 授权 → 回调 URL 片段带 #access_token → 前端收取并立即清理 URL
    - access_token 只存 sessionStorage（关标签页即失效，约 1 小时），不写 localStorage、不上传任何服务器
    - 邮件数据只在浏览器内存里，页面关掉即消失
-   - 权限范围：gmail.readonly（只读）+ gmail.send（发送） */
+   - 权限范围：gmail.readonly（只读）+ gmail.send（发送）
+   性能模型（v4.1）：
+   - 列表只拉 format=metadata（头部 + 摘要 + 标签），点开邮件才 format=full 补正文，
+     首屏 API 调用从「列表数 × 每页封数」降到「列表数 + 点开的几封」
+   - 六个文件夹列表并发拉取（此前串行排队） */
+import { bytesToB64url } from "./utils.js";
+import { toEmail, bodyParagraphs, htmlPart, collectParts } from "./mail-parse.js";
+import { translateParagraphs } from "./translate.js";
 
 (function () {
   "use strict";
@@ -47,20 +54,7 @@
     }
 
     // ---------- PKCE helpers ----------
-    const b64url = (buf) =>
-      btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/, "");
-    function randomString(len) {
-      const bytes = crypto.getRandomValues(new Uint8Array(len));
-      // base64url approx 4/3 expansion, generate enough bytes then slice
-      return b64url(bytes).slice(0, len);
-    }
-    async function pkceChallenge(verifier) {
-      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
-      return b64url(digest);
-    }
+
     function redirectUri() {
       return window.location.origin + window.location.pathname;
     }
@@ -84,7 +78,8 @@
     // ---------- 发起授权（隐式流程） ----------
     async function startRedirectLogin() {
       if (!configured()) throw new Error("尚未配置 GOOGLE_CLIENT_ID（见 README 的接入步骤）");
-      const state = randomString(24);
+      // 隐式流程仅需随机 state 防 CSRF
+      const state = bytesToB64url(crypto.getRandomValues(new Uint8Array(24))).slice(0, 24);
       try {
         sessionStorage.setItem(STATE_KEY, state);
         sessionStorage.setItem("mymail-login-target", suffix);
@@ -100,11 +95,9 @@
       window.location.assign(u.toString());
     }
 
-    // 兼容旧 API 名称（app.js 曾调用 consumerRedirectToken）
+    // 兼容旧版 implicit 流程残留的 hash token：返回是否收到（新流程回调走 consumeRedirectCode）
     function consumeRedirectToken() {
-      // 先尝试新流程的 code，再兼容旧 hash token
-      if (consumeLegacyHashToken()) return true;
-      return false;
+      return consumeLegacyHashToken();
     }
 
     function consumeRedirectError() {
@@ -145,7 +138,7 @@
       const q = new URLSearchParams(window.location.search);
       const code = q.get("code");
       const err = q.get("error");
-      const state = q.get("state");
+      // state parameter cleaned below
       if (!code && !err) return null;
       // 无论成功失败，先清理 URL 上的敏感参数，避免 code/state 进历史
       const cleanParams = new URLSearchParams(window.location.search);
@@ -177,12 +170,6 @@
       return { error: "登录方式已更新，请重新点击登录" };
     }
 
-    // 供 app.js 兼容调用：旧版 consumeRedirectToken 是同步布尔，新版是异步 code 交换
-    // 这里保留一个同步包装，实际异步逻辑在 consumeRedirectCode 中
-    function getStoredTokenSync() {
-      return getStoredToken();
-    }
-
     async function api(path, options = {}) {
       let token = getStoredToken();
       if (!token) throw new Error("登录已过期，请重新登录");
@@ -196,6 +183,12 @@
       });
       if (resp.status === 401) {
         clearToken();
+        // 通知 UI 层给出「重新登录」入口（app-init.js 注入），再抛错由调用方提示
+        if (typeof window.MyMailNotifyAuthExpired === "function") {
+          try {
+            window.MyMailNotifyAuthExpired(providerName);
+          } catch (e) {}
+        }
         throw new Error("登录已过期，请重新登录");
       }
       if (!resp.ok) {
@@ -209,128 +202,10 @@
       return resp.status === 204 ? {} : resp.json();
     }
 
-    /* ---------- 邮件解析 ---------- */
-    const decodeEntities = (s) => {
-      const ta = document.createElement("textarea");
-      ta.innerHTML = s || "";
-      return ta.value;
-    };
-    function header(headers, name) {
-      const h = (headers || []).find((x) => x.name.toLowerCase() === name.toLowerCase());
-      return h ? decodeEntities(h.value) : "";
-    }
-    function parseAddress(from) {
-      const m = /^(.*?)\s*<([^>]+)>$/.exec(from || "");
-      if (m) return { name: m[1].replace(/^"|"$/g, "") || m[2], address: m[2] };
-      return { name: from || "(未知)", address: from || "" };
-    }
-    function b64ToText(data) {
-      try {
-        const bin = atob((data || "").replace(/-/g, "+").replace(/_/g, "/"));
-        const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-        return new TextDecoder("utf-8").decode(bytes);
-      } catch (e) {
-        return "";
-      }
-    }
-    function collectParts(payload, texts, atts) {
-      if (!payload) return;
-      if (payload.filename && payload.body) {
-        atts.push({
-          filename: payload.filename,
-          mimeType: payload.mimeType || "",
-          size: payload.body.size || 0,
-          attachmentId: payload.body.attachmentId || null,
-        });
-      }
-      if (payload.body && payload.body.data)
-        texts.push({ mime: payload.mimeType, text: b64ToText(payload.body.data) });
-      (payload.parts || []).forEach((p) => collectParts(p, texts, atts));
-    }
-    function gmailCategory(labelIds) {
-      if (labelIds.includes("CATEGORY_PROMOTIONS")) return "promo";
-      if (labelIds.includes("CATEGORY_SOCIAL")) return "social";
-      if (labelIds.includes("CATEGORY_UPDATES") || labelIds.includes("CATEGORY_FORUMS")) return "updates";
-      return null;
-    }
-    function htmlPart(msg) {
-      const parts = [];
-      collectParts(msg.payload, parts, []);
-      const hp = parts.find((p) => p.mime === "text/html");
-      return hp ? hp.text : null;
-    }
-    function bodyParagraphs(msg) {
-      const parts = [];
-      collectParts(msg.payload, parts, []);
-      let text = "";
-      const plain = parts.find((p) => p.mime === "text/plain");
-      if (plain) text = plain.text;
-      else {
-        const html = parts.find((p) => p.mime === "text/html");
-        if (html) {
-          const div = document.createElement("div");
-          div.innerHTML = html.text;
-          text = div.textContent || "";
-        }
-      }
-      const paras = text
-        .split(/\n{2,}|\r\n{2,}/)
-        .map((p) => p.replace(/\s+\n/g, "\n").trim())
-        .filter(Boolean);
-      return paras.length ? paras : [msg.snippet || "(无正文)"];
-    }
-    function primaryFolder(labelIds, fallback) {
-      if (labelIds.includes("TRASH")) return "trash";
-      if (labelIds.includes("SPAM")) return "spam";
-      if (labelIds.includes("DRAFT")) return "drafts";
-      if (labelIds.includes("SENT")) return "sent";
-      return fallback || "inbox";
-    }
-    function toEmail(msg, fallbackFolder) {
-      const h = (msg.payload && msg.payload.headers) || [];
-      const from = parseAddress(header(h, "From"));
-      const labelIds = msg.labelIds || [];
-      const d = new Date(Number(msg.internalDate || Date.now()));
-      const pad = (n) => String(n).padStart(2, "0");
-      return {
-        id: msg.id,
-        provider: providerName,
-        bodyLoaded: true,
-        ts: Number(msg.internalDate || 0),
-        from: from.name,
-        address: from.address,
-        to: header(h, "To") || "我",
-        date: `${d.getMonth() + 1}月${d.getDate()}日`,
-        time: `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`,
-        subject: header(h, "Subject") || "(无主题)",
-        snippet: decodeEntities(msg.snippet || ""),
-        label: null,
-        folder: primaryFolder(labelIds, fallbackFolder),
-        archived:
-          !labelIds.includes("INBOX") &&
-          !["TRASH", "SPAM", "DRAFT", "SENT"].some((x) => labelIds.includes(x)),
-        unread: labelIds.includes("UNREAD"),
-        starred: labelIds.includes("STARRED"),
-        body: bodyParagraphs(msg),
-        bodyHtml: htmlPart(msg),
-        bodyZh: null,
-        attachments: (() => {
-          const atts = [];
-          collectParts(msg.payload, [], atts);
-          return atts;
-        })(),
-        unsub: (() => {
-          const v = header(h, "List-Unsubscribe");
-          const mm = /<(https?:[^>]+)>/.exec(v || "");
-          const mo = /<(mailto:[^>]+)>/.exec(v || "");
-          return mm ? mm[1] : mo ? mo[1] : null;
-        })(),
-        gmailLabelIds: labelIds,
-        important: labelIds.includes("IMPORTANT"),
-        category: gmailCategory(labelIds),
-        gmailThreadId: msg.threadId,
-      };
-    }
+    /* ---------- 邮件列表（metadata：头部 + 摘要 + 标签） ---------- */
+    const METADATA_QS =
+      "format=metadata" +
+      ["From", "To", "Subject", "List-Unsubscribe"].map((n) => "&metadataHeaders=" + n).join("");
 
     async function fetchList(params) {
       const qs = new URLSearchParams(params).toString();
@@ -343,7 +218,7 @@
         while (queue.length) {
           const id = queue.shift();
           try {
-            msgs.push(await api("messages/" + id + "?format=full"));
+            msgs.push(await api("messages/" + id + "?" + METADATA_QS));
           } catch (e) {}
         }
       }
@@ -362,10 +237,11 @@
         { labelIds: "TRASH", maxResults: "20" },
         { labelIds: "STARRED", maxResults: "40" },
       ];
-      for (const job of jobs) {
-        const msgs = await fetchList(job);
+      // 六个文件夹并发拉取；单个列表失败不再拖垮整个登录
+      const results = await Promise.all(jobs.map((job) => fetchList(job).catch(() => [])));
+      for (const msgs of results) {
         for (const raw of msgs) {
-          const em = toEmail(raw);
+          const em = toEmail(raw, undefined, providerName);
           if (byIdMap.has(em.id)) {
             const prev = byIdMap.get(em.id);
             prev.starred = prev.starred || em.starred;
@@ -375,11 +251,16 @@
       return { profile, emails: [...byIdMap.values()] };
     }
 
+    // 点开列表邮件时补全正文 / 附件（列表只拉了 metadata，bodyLoaded=false）
+    async function fetchFull(id) {
+      const msg = await api("messages/" + id + "?format=full");
+      const atts = [];
+      collectParts(msg.payload, [], atts);
+      return { body: bodyParagraphs(msg), bodyHtml: htmlPart(msg), attachments: atts };
+    }
+
     function utf8ToB64Url(str) {
-      const bytes = new TextEncoder().encode(str);
-      let bin = "";
-      bytes.forEach((b) => (bin += String.fromCharCode(b)));
-      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      return bytesToB64url(new TextEncoder().encode(str));
     }
     async function send({ to, cc, bcc, subject, body, threadId }) {
       // MIME 头里的非 ASCII（中文主题/地址）必须做 RFC 2047 encoded-word 编码，
@@ -387,10 +268,7 @@
       const encodeHeader = (value) => {
         const str = String(value || "");
         if (/^[\x20-\x7E]*$/.test(str)) return str;
-        const bytes = new TextEncoder().encode(str);
-        let bin = "";
-        bytes.forEach((b) => (bin += String.fromCharCode(b)));
-        return "=?UTF-8?B?" + btoa(bin) + "?=";
+        return "=?UTF-8?B?" + utf8ToB64Url(str) + "?=";
       };
       const headers = ["To: " + to];
       if (cc && String(cc).trim()) headers.push("Cc: " + String(cc).trim());
@@ -403,69 +281,27 @@
       return api("messages/send", { method: "POST", body: JSON.stringify(payload) });
     }
 
-    // 翻译：并发 + 简单内存缓存
-    const translateCache = new Map();
-    async function translateParagraphs(paragraphs, target) {
-      const tl = target === "en" ? "en" : "zh-CN";
-      const results = new Array(paragraphs.length);
-      const needFetch = [];
-      paragraphs.forEach((p, i) => {
-        const key = tl + "\0" + p.slice(0, 1500);
-        if (translateCache.has(key)) results[i] = translateCache.get(key);
-        else needFetch.push({ idx: i, text: p.slice(0, 1500), key });
-      });
-      if (needFetch.length) {
-        // 并发 4 路，避免一次性打满限频
-        const queue = needFetch.slice();
-        async function worker() {
-          while (queue.length) {
-            const job = queue.shift();
-            const url =
-              "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&dt=t&tl=" +
-              tl +
-              "&q=" +
-              encodeURIComponent(job.text);
-            const r = await fetch(url);
-            if (!r.ok) throw new Error("翻译服务返回 " + r.status);
-            const data = await r.json();
-            const out = (data[0] || []).map((seg) => seg[0]).join("");
-            translateCache.set(job.key, out);
-            results[job.idx] = out;
-          }
-        }
-        await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
-      }
-      return results;
-    }
-
     async function searchAll(q) {
       const msgs = await fetchList({ q, maxResults: "30" });
-      return msgs.map((raw) => toEmail(raw));
+      return msgs.map((raw) => toEmail(raw, undefined, providerName));
     }
     async function downloadAttachment(messageId, attachmentId) {
       const r = await api("messages/" + messageId + "/attachments/" + attachmentId);
       return r.data || "";
     }
 
-    // 兼容旧调用：部分旧代码会调用 signIn()，新流程下引导到重定向
-    async function signIn() {
-      const t = getStoredToken();
-      if (t) return t;
-      throw new Error("登录已过期，请重新登录");
-    }
-
     return {
       configured,
-      signIn,
       startRedirectLogin,
       consumeRedirectToken,
       consumeRedirectError,
       consumeRedirectCode,
       getStoredToken,
-      getStoredTokenSync,
       clearToken,
       loadAll,
+      fetchFull,
       send,
+      // 翻译实现在共享模块 translate.js（Outlook 同用），这里保留同名入口
       translateParagraphs,
       searchAll,
       downloadAttachment,

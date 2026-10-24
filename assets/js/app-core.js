@@ -4,7 +4,7 @@
    安全：对接 Gmail/Outlook 的 PKCE 流程
    补齐按键：为所有无功能按键补上可操作的逻辑与可访问性
 */
-import { LABELS, FOLDERS } from "./data.module.js";
+import { LABELS, FOLDERS, SEED_EMAILS } from "./data.module.js";
 import {
   state,
   ui,
@@ -18,9 +18,15 @@ import {
   liveCount,
   SEED_VERSION,
 } from "./store.js";
-import { esc, initialOf, colorOf, debounce, fmtSize } from "./utils.js";
+import { esc, initialOf, colorOf, debounce, fmtSize, strHash } from "./utils.js";
+import { translateParagraphs } from "./translate.js";
 
 const $ = (sel) => document.querySelector(sel);
+
+/* 列表增量渲染：先渲染前 PAGE_SIZE 封，滚动接近底部时由 IntersectionObserver 追加。
+   一次拉几百封（用户可调拉取数量）时避免全量重建 DOM 造成卡顿。 */
+const PAGE_SIZE = 60;
+let renderLimit = PAGE_SIZE;
 
 /* 写信入口的模块级引用。
    openCompose 定义在 bindEvents 内部（它依赖同作用域的 trapFocus / releaseTrap），
@@ -259,11 +265,9 @@ function labelById(id) {
 }
 
 /* ---------------- 账号列表（参考 inboxed 的账号 rail：头像 + 未读角标 + 行内操作） ---------------- */
-// 同一个邮箱每次得到同一个色相，头像颜色稳定不跳变
+// 同一个邮箱每次得到同一个色相，头像颜色稳定不跳变（哈希统一走 utils.strHash）
 function accountHue(seed) {
-  let h = 0;
-  for (const ch of String(seed || "?")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return h % 360;
+  return strHash(seed) % 360;
 }
 // 只统计收件箱里真正未读、且未归档的邮件，和侧栏文件夹计数的口径一致
 function accountUnread(emails) {
@@ -417,12 +421,32 @@ function mailItemHtml(m) {
   );
 }
 
+/* 哨兵进入视口时追加下一页列表行（单例 observer，重渲染后重新挂到新哨兵上） */
+let listIO = null;
+function ensureListObserver() {
+  if (listIO) return listIO;
+  listIO = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((en) => en.isIntersecting)) return;
+      if (renderLimit >= visibleEmails().length) return;
+      renderLimit += PAGE_SIZE;
+      lastListIds = []; // 强制整表重建以追加新行
+      renderList();
+    },
+    { rootMargin: "200px" } // 提前一点预加载，滚动不顿挫
+  );
+  return listIO;
+}
+
 function renderList() {
   const list = visibleEmails();
   const ids = list.map((m) => m.id).join(",");
+  const idsChanged = ids !== lastListIds.join(",");
   // 进入/退出多选会改变每行的 DOM 结构（插入或移除 .row-check），
   // 只比较 id 会走原地 patch 分支，导致勾选框永远不出现。
-  const needFullRebuild = ids !== lastListIds.join(",") || ui.selecting !== lastSelecting;
+  const needFullRebuild = idsChanged || ui.selecting !== lastSelecting;
+  // 列表内容变化（切视图/搜索/翻页）时从头渲染前 PAGE_SIZE 封
+  if (idsChanged) renderLimit = PAGE_SIZE;
   lastListIds = list.map((m) => m.id);
   lastSelecting = ui.selecting;
 
@@ -444,8 +468,16 @@ function renderList() {
 
   const ul = $("#mailList");
   if (needFullRebuild) {
-    // 仍用 innerHTML 批量构建，但通过 ids 对比避免同列表内的无效重绘
-    ul.innerHTML = list.map(mailItemHtml).join("");
+    // 仍用 innerHTML 批量构建，但通过 ids 对比避免同列表内的无效重绘；
+    // 超出 renderLimit 的行由哨兵元素触发增量追加
+    const shown = list.slice(0, renderLimit);
+    ul.innerHTML =
+      shown.map(mailItemHtml).join("") +
+      (list.length > shown.length
+        ? '<li class="list-sentinel" aria-hidden="true"><span class="list-sentinel-spinner"></span></li>'
+        : "");
+    const sentinel = ul.querySelector(".list-sentinel");
+    if (sentinel) ensureListObserver().observe(sentinel);
   } else {
     // 仅状态变化（选中/星标/已读），原地 patch 相关节点，避免整表闪烁
     list.forEach((m) => {
@@ -529,13 +561,16 @@ function updatePager(list = visibleEmails()) {
 function renderReading() {
   const m = byId(ui.selectedId);
   const box = $("#readingContent");
+  const pane = $(".reading-pane");
   if (!m) {
     box.innerHTML = "";
     $("#readingEmpty").hidden = false;
+    if (pane) pane.classList.remove("has-email");
     updatePager();
     return;
   }
   $("#readingEmpty").hidden = true;
+  if (pane) pane.classList.add("has-email");
   const body = ui.showTranslated && m.bodyZh ? m.bodyZh : m.body;
   const isDraft = m.folder === "drafts";
   box.innerHTML = `
@@ -629,16 +664,18 @@ function renderReading() {
     };
   });
   $("#btnTranslate").onclick = async () => {
+    // 隐私提示：首次使用翻译功能时在 UI 提示一次，告知正文发送给第三方翻译服务（持久化）
+    if (!state.translateNoticeShown) {
+      state.translateNoticeShown = true;
+      saveSync();
+      toast("提示：翻译会把邮件正文发送给在线翻译服务（MyMemory，失败时兜底 Google）");
+    }
     if (!m.bodyZh) {
-      if (ui.mode !== "live") {
-        toast("这封邮件暂无译文");
-        return;
-      }
       const btn = $("#btnTranslate");
       btn.textContent = "翻译中…";
       btn.disabled = true;
       try {
-        m.bodyZh = await svcOf(m.provider).translateParagraphs(m.body, state.lang);
+        m.bodyZh = await translateParagraphs(m.body, state.lang);
       } catch (e) {
         toast("翻译失败：" + e.message);
         renderReading();
@@ -861,22 +898,41 @@ export function select(id, markRead = true, openReading = true) {
   ui.selectedId = id;
   ui.showTranslated = false;
   const m = byId(id);
-  if (m && m.provider === "outlook" && !m.bodyLoaded) {
-    svcOf("outlook")
-      .fetchFull(m.id)
-      .then(({ body, bodyHtml, attachments }) => {
-        m.body = body;
-        m.bodyHtml = bodyHtml;
-        m.attachments = attachments;
-        m.bodyLoaded = true;
-        if (ui.selectedId === m.id) {
-          invalidateVisible();
-          renderReading();
-        }
-      })
-      .catch(() => {
-        m.bodyLoaded = true;
-      });
+  // 真实账号的列表邮件是 metadata 摘要（bodyLoaded=false）：点开时补拉正文与附件
+  if (m && !m.bodyLoaded && m.provider && accounts.get(m.provider)) {
+    const svc = svcOf(m.provider);
+    if (svc && svc.fetchFull) {
+      svc
+        .fetchFull(m.id)
+        .then(({ body, bodyHtml, attachments }) => {
+          m.body = body;
+          m.bodyHtml = bodyHtml;
+          m.attachments = attachments;
+          m.bodyLoaded = true;
+          if (ui.selectedId === m.id) {
+            invalidateVisible();
+            renderReading();
+          }
+        })
+        .catch((err) => {
+          // 加载失败时保留 bodyLoaded=false，允许用户再次点击重试
+          m.bodyLoaded = false;
+          toast("正文加载失败" + (err?.message ? `（${err.message}）` : "") + "，点击可重试", {
+            label: "重试",
+            fn: () => select(m.id, false, false),
+          });
+          if (ui.selectedId === m.id) {
+            renderReading();
+          }
+        });
+    }
+  }
+  // 键盘 j/k 可能跳到尚未渲染的分页行：把渲染上限扩到目标行所在页
+  const list = visibleEmails();
+  const selIdx = list.findIndex((x) => x.id === id);
+  if (selIdx >= renderLimit) {
+    renderLimit = (Math.floor(selIdx / PAGE_SIZE) + 1) * PAGE_SIZE;
+    lastListIds = [];
   }
   if (m && markRead && state.autoRead !== false && m.unread) {
     m.unread = false;
@@ -1532,18 +1588,16 @@ export function bindEvents(handlers) {
     }
     localStorage.removeItem("mymail-state-v2");
     // 重新加载演示数据
-    import("./data.module.js").then(({ SEED_EMAILS: S }) => {
-      state.emails = structuredClone(S);
-      // 同步种子版本号，避免下次启动又被 loadPersisted 判定为「待升级」而二次覆盖
-      state.seedVersion = SEED_VERSION;
-      ui.selectedId = null;
-      ui.currentFolder = "inbox";
-      ui.currentLabel = null;
-      ui.filterMode = "all";
-      saveSync();
-      renderAll();
-      toast("演示数据已恢复");
-    });
+    state.emails = structuredClone(SEED_EMAILS);
+    // 同步种子版本号，避免下次启动又被 loadPersisted 判定为「待升级」而二次覆盖
+    state.seedVersion = SEED_VERSION;
+    ui.selectedId = null;
+    ui.currentFolder = "inbox";
+    ui.currentLabel = null;
+    ui.filterMode = "all";
+    saveSync();
+    renderAll();
+    toast("演示数据已恢复");
   }
   $("#menuResetData").onclick = () => {
     $("#moreMenu").hidden = true;
@@ -1927,6 +1981,8 @@ export function bindEvents(handlers) {
     $("#settingAutoRead").checked = state.autoRead !== false;
     $("#settingShortcuts").checked = state.shortcuts !== false;
     $("#settingFetchCount").value = String(state.fetchCount || 40);
+    const ar = $("#settingAutoRefresh");
+    if (ar) ar.value = String(state.autoRefreshSec || 0);
     $("#settingDefaultAccount").value = state.defaultAccount || "auto";
     $("#settingSignature").value = state.signature || "";
     $("#settingsModal").hidden = false;
@@ -1965,6 +2021,20 @@ export function bindEvents(handlers) {
     window.MyMailFetchCount = state.fetchCount;
     saveSync();
     toast("拉取数量已设为 " + state.fetchCount + " 封（下次打开或重新拉取时生效）");
+  };
+  $("#settingAutoRefresh").onchange = (e) => {
+    state.autoRefreshSec = Number(e.target.value) || 0;
+    saveSync();
+    if (handlers.setupAutoRefresh) handlers.setupAutoRefresh();
+    toast(
+      state.autoRefreshSec
+        ? "自动刷新：每 " +
+            (state.autoRefreshSec % 60 === 0
+              ? state.autoRefreshSec / 60 + " 分钟"
+              : state.autoRefreshSec + " 秒") +
+            "（页面在前台时生效）"
+        : "自动刷新已关闭"
+    );
   };
   $("#settingDefaultAccount").onchange = (e) => {
     state.defaultAccount = e.target.value;

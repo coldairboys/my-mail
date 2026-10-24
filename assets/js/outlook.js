@@ -3,6 +3,7 @@
    令牌只存 sessionStorage；邮件只在内存。授权走 PKCE 整页跳转（SPA 推荐方式，
    不需要、也不使用 client_secret）。权限：Mail.Read + Mail.Send + User.Read。
    v4 修复：searchAll 的 OData 编码（用 encodeURIComponent 包裹整个搜索短语）。 */
+import { bytesToB64url as b64url } from "./utils.js";
 
 (function () {
   "use strict";
@@ -42,11 +43,6 @@
     } catch (e) {}
   }
 
-  const b64url = (buf) =>
-    btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
   function randomState(len) {
     const b = crypto.getRandomValues(new Uint8Array(len));
     return b64url(b).slice(0, len);
@@ -145,6 +141,12 @@
     });
     if (resp.status === 401) {
       clearToken();
+      // 通知 UI 层给出「重新登录」入口（app-init.js 注入），再抛错由调用方提示
+      if (typeof window.MyMailNotifyAuthExpired === "function") {
+        try {
+          window.MyMailNotifyAuthExpired("outlook");
+        } catch (e) {}
+      }
       throw new Error("Outlook 登录已过期，请重新登录");
     }
     if (!resp.ok && resp.status !== 202) {

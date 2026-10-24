@@ -148,6 +148,61 @@ const G = () => window.MyMailGmail;
 const G2 = () => window.MyMailGmail2;
 const MS = () => window.MyMailOutlook;
 
+/* ---------- 全局错误兜底：未捕获异常至少可见（toast 节流），不静默白屏 ---------- */
+let reportedErrors = 0;
+function reportGlobalError(detail) {
+  console.error("[MyMail]", detail);
+  if (reportedErrors++ < 3) toast("页面出现异常：" + detail);
+}
+window.addEventListener("error", (e) => reportGlobalError(e.message || "脚本错误"));
+window.addEventListener("unhandledrejection", (e) => {
+  const r = e.reason;
+  reportGlobalError((r && (r.message || String(r))) || "未处理的 Promise 异常");
+});
+
+/* ---------- 令牌过期通知（gmail.js / outlook.js 的 api() 在 401 时回调） ----------
+   toast 上直接给「重新登录」按钮，点了整页跳转重新授权，回来后自动恢复。 */
+let authNoticeAt = 0;
+window.MyMailNotifyAuthExpired = function (providerName) {
+  const now = Date.now();
+  if (now - authNoticeAt < 1000) return; // 并发请求同时 401 只提示一次
+  authNoticeAt = now;
+  const run =
+    providerName === "outlook"
+      ? () => MS() && MS().startRedirectLogin()
+      : providerName === "gmail2"
+        ? () => G2() && G2().startRedirectLogin()
+        : () => G() && G().startRedirectLogin();
+  // 延后一拍：让调用方的「刷新失败：登录已过期」先弹，这里覆盖成带按钮的版本
+  setTimeout(() => {
+    toast("登录已过期，该账号需要重新授权", {
+      label: "重新登录",
+      fn: () => {
+        try {
+          run();
+        } catch (e) {
+          toast(e.message || "重新登录失败");
+        }
+      },
+    });
+  }, 350);
+};
+
+/* ---------- 自动刷新（设置里可开关；仅页面在前台且处于真实模式时执行） ---------- */
+let refreshTimer = null;
+function setupAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  const sec = Number(state.autoRefreshSec) || 0;
+  if (!sec) return;
+  refreshTimer = setInterval(() => {
+    if (document.hidden || ui.mode !== "live") return;
+    refreshCurrent(true).catch(() => {});
+  }, sec * 1000);
+}
+
 function showLogin(errorMsg) {
   if (errorMsg) {
     $("#loginError").hidden = false;
@@ -167,8 +222,8 @@ function hideLogin() {
   $("#loginScreen").setAttribute("aria-hidden", "true");
 }
 
-async function enterGmail(switchTo = true) {
-  toast("正在拉取你的 Gmail…");
+async function enterGmail(switchTo = true, silent = false) {
+  if (!silent) toast("正在拉取你的 Gmail…");
   const { profile, emails } = await G().loadAll();
   const acc = account("gmail");
   acc.profile = profile;
@@ -183,10 +238,11 @@ async function enterGmail(switchTo = true) {
     renderAll();
   }
   hideLogin();
-  toast("已登录 Gmail：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
+  if (!silent)
+    toast("已登录 Gmail：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
 }
-async function enterOutlook(switchTo = true) {
-  toast("正在拉取你的 Outlook…");
+async function enterOutlook(switchTo = true, silent = false) {
+  if (!silent) toast("正在拉取你的 Outlook…");
   const { profile, emails } = await MS().loadAll();
   const acc = account("outlook");
   acc.profile = profile;
@@ -201,10 +257,11 @@ async function enterOutlook(switchTo = true) {
     renderAll();
   }
   hideLogin();
-  toast("已登录 Outlook：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
+  if (!silent)
+    toast("已登录 Outlook：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
 }
-async function enterG2(switchTo = true) {
-  toast("正在拉取第二个 Gmail…");
+async function enterG2(switchTo = true, silent = false) {
+  if (!silent) toast("正在拉取第二个 Gmail…");
   const { profile, emails } = await G2().loadAll();
   const gmailAcc = account("gmail");
   if (
@@ -233,16 +290,16 @@ async function enterG2(switchTo = true) {
   toast("已添加第二个 Gmail：" + (profile.emailAddress || "") + (hit ? `（规则处理了 ${hit} 封）` : ""));
   return true;
 }
-async function refreshCurrent() {
+async function refreshCurrent(silent = false) {
   const v = ui.view;
-  if (v === "gmail") await enterGmail(false);
-  else if (v === "gmail2") await enterG2(false);
-  else if (v === "outlook") await enterOutlook(false);
+  if (v === "gmail") await enterGmail(false, silent);
+  else if (v === "gmail2") await enterG2(false, silent);
+  else if (v === "outlook") await enterOutlook(false, silent);
   else if (v === "unified") {
     const jobs = [];
-    if (account("gmail").on) jobs.push(enterGmail(false));
-    if (account("gmail2").on) jobs.push(enterG2(false));
-    if (account("outlook").on) jobs.push(enterOutlook(false));
+    if (account("gmail").on) jobs.push(enterGmail(false, silent));
+    if (account("gmail2").on) jobs.push(enterG2(false, silent));
+    if (account("outlook").on) jobs.push(enterOutlook(false, silent));
     await Promise.all(jobs);
   }
 }
@@ -371,8 +428,10 @@ bindEvents({
   handleAuthG2Toggle,
   renderRules,
   refreshCurrent,
+  setupAutoRefresh,
 });
 bindRulesForm();
+setupAutoRefresh();
 
 // 兜底：旧版 token 达到 quota 时的提示
 window.addEventListener("mymail:quota-trimmed", () => toast("本地存储已接近上限，已自动精简演示数据"));
