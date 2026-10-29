@@ -1,9 +1,12 @@
 /* My Mail · Gmail 接入层（v4.1 · 隐式流程 + 列表懒加载）
    安全模型：
-   - 登录走 OAuth 2.0 隐式流程（response_type=token），密码只在 Google 官方页面输入
-   - 本文件只用 Client ID（公开标识），不需要、也不能使用 client_secret：
-     Google 对「Web 应用」类型客户端在授权码换令牌时强制要求 client_secret，
-     纯静态网页无法安全持有密钥，故授权码 + PKCE 流程在本项目不可用（v4 曾误用，已改回）
+   - 登录走 OAuth 2.0 隐式流程（response_type=token），密码只在 Google 官方页面输入。
+     为什么不用授权码 + PKCE：Google 对「Web 应用」类型客户端在授权码换令牌时
+     强制要求 client_secret，纯静态网页无法安全持有密钥（v4 曾试过 PKCE，已改回）。
+     已知取舍：隐式流程令牌经 URL 片段返回、无法走 Google 的吊销接口，
+     靠「只进 sessionStorage、约 1 小时自动过期」兜底；若日后 Google 放开
+     无 secret 的 code 交换（或接入 GIS token client），优先迁回 code flow。
+   - 本文件只用 Client ID（公开标识），不需要、也不能使用 client_secret
    - 流程：生成 state → 跳转 Google 授权 → 回调 URL 片段带 #access_token → 前端收取并立即清理 URL
    - access_token 只存 sessionStorage（关标签页即失效，约 1 小时），不写 localStorage、不上传任何服务器
    - 邮件数据只在浏览器内存里，页面关掉即消失
@@ -23,8 +26,9 @@ import { translateParagraphs } from "./translate.js";
   function createGmailClient(suffix, providerName) {
     const TOKEN_KEY = "mymail-gmail-token" + suffix;
     const EXP_KEY = "mymail-gmail-token-exp" + suffix;
-    const VERIFIER_KEY = "mymail-gmail-verifier" + suffix;
     const STATE_KEY = "mymail-gmail-state" + suffix;
+    // v4 遗留的 PKCE verifier 死键名：clearToken 里对旧会话做一次性清扫
+    const LEGACY_VERIFIER_KEY = "mymail-gmail-verifier" + suffix;
 
     const configured = () => Boolean(CFG.GOOGLE_CLIENT_ID);
 
@@ -47,7 +51,8 @@ import { translateParagraphs } from "./translate.js";
       try {
         sessionStorage.removeItem(TOKEN_KEY);
         sessionStorage.removeItem(EXP_KEY);
-        sessionStorage.removeItem(VERIFIER_KEY);
+        // 清扫 v4 PKCE 遗留的 verifier 死键（现流程已不写入）
+        sessionStorage.removeItem(LEGACY_VERIFIER_KEY);
         sessionStorage.removeItem(STATE_KEY);
         sessionStorage.removeItem("mymail-login-target");
       } catch (e) {}
@@ -128,7 +133,9 @@ import { translateParagraphs } from "./translate.js";
       return null;
     }
 
-    // 消费回调中的 ?code=，校验 state 后用 verifier 换取 token；返回 { ok, error } 或 null（无回调）
+    // 消费回调中的授权结果；返回 { ok, error } 或 null（无回调）。
+    // 隐式流程令牌经 URL 片段（#access_token=...）返回，在 consumeLegacyHashToken 里收取；
+    // 带查询参数（?code=/error）的旧版授权码流程已停用，只做参数清理并提示重新登录。
     async function consumeRedirectCode() {
       // 隐式流程：令牌经 URL 片段返回
       if (window.location.hash && window.location.hash.includes("access_token=")) {
@@ -164,7 +171,7 @@ import { translateParagraphs } from "./translate.js";
       // （Google 对 Web 应用客户端换令牌强制要求 client_secret，静态网页无法使用）。
       // URL 上的 code/state 已在上方清理，这里只提示重新登录——新登录走隐式流程。
       try {
-        sessionStorage.removeItem(VERIFIER_KEY);
+        sessionStorage.removeItem(LEGACY_VERIFIER_KEY);
         sessionStorage.removeItem(STATE_KEY);
       } catch (e) {}
       return { error: "登录方式已更新，请重新点击登录" };
