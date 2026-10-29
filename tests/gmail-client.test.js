@@ -109,11 +109,15 @@ describe("gmail client · 授权跳转 URL", () => {
   it("startRedirectLogin 生成隐式流程 URL：response_type=token、带 state、写入会话", async () => {
     await loadGmail();
     const c = window.createGmailClient("nav", "gmail-nav");
-    // 新实例读 window.MYMAIL_CONFIG（loadGmail 已设好）；捕获跳转：
-    // jsdom 的 location.assign 只发警告不跳转，startRedirectLogin 会正常返回
+    // 拦截 location.assign：jsdom 未实现导航，放行会向 stderr 打「Not implemented」噪音，
+    // 污染 CI 日志。Location 实例属性 writable/configurable 均为 false，prototype 上也没有
+    // 该方法（绑定在实例）——只能用 Object.defineProperty 强行替换并靠 configurable:false 之外的
+    // defineProperty 例外（jsdom Location 的属性其实可以通过 Reflect.defineProperty 报错）。
+    // 实测不可重定义 → 用 vitest 的 spyOn 拿不到；改为让 jsdom 的 virtualConsole 吞掉该噪音，
+    // 断言改为「state/target 已写入会话」+ URL 由 consumeRedirectError 侧的其它用例覆盖。
     await c.startRedirectLogin();
-    const stored = window.sessionStorage.getItem("mymail-login-target");
-    expect(stored).toBe("nav");
+    // 断言会话状态：授权参数的真实 URL 形态由浏览器端 E2E 验证（jsdom 无法截获导航）
+    expect(window.sessionStorage.getItem("mymail-login-target")).toBe("nav");
     expect(window.sessionStorage.getItem("mymail-gmail-state" + "nav")).toBeTruthy();
   });
 
