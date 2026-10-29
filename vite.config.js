@@ -3,7 +3,8 @@ import { defineConfig } from "vite";
 /* 生产构建注入 CSP：纯静态站能上的第一道防线（XSS 缩小面）。
    只在 build 时注入——dev 模式下 Vite 的 HMR 需要内联脚本与 ws 连接，会被 CSP 拦。
    说明：
-   - script/style 需要 'unsafe-inline'：index.html 有首屏主题内联脚本，模板大量行内 style
+   - script 只放行 'self'：index.html 无内联脚本（theme-boot.js 早已外置），
+     应用也不动态注入 script；style 仍需 'unsafe-inline'（模板大量行内 style）
    - img/media 放开 *：HTML 邮件在沙箱 iframe 里要加载任意发件方的图片
    - connect-src 收敛到实际调用的 API 域（Gmail / OAuth / Graph / 翻译） */
 const CSP = [
@@ -14,7 +15,7 @@ const CSP = [
   "media-src 'self' data: blob:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
 ].join("; ");
@@ -25,8 +26,10 @@ function cspPlugin() {
     apply: "build",
     transformIndexHtml(html) {
       if (html.includes("Content-Security-Policy")) {
+        // 只匹配 CSP meta 本身：不能用 <meta[\s\S]*? 开头，那会从文档第一个 <meta
+        // （charset）一路吞到 CSP meta，把中间的 title/viewport/favicon 全替换掉
         return html.replace(
-          /<meta[\s\S]*?http-equiv="Content-Security-Policy"[\s\S]*?content="[^"]*"[\s\S]*?\/?>/i,
+          /<meta\s[^>]*http-equiv="Content-Security-Policy"[^>]*>/i,
           `<meta http-equiv="Content-Security-Policy" content="${CSP}" />`
         );
       }
