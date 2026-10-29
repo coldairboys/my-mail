@@ -5,3 +5,6 @@ dist/
 
 # 本地验证产物（截图、临时脚本），不提交
 .review*/
+
+# Lighthouse 原始报告单份 500KB 以上，是带时间戳的快照，需要时本地重跑，不入库
+reports/lighthouse-*.report.*
