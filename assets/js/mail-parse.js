@@ -65,6 +65,15 @@ export function htmlPart(msg) {
   return hp ? hp.text : null;
 }
 
+export function parseHtmlToText(html) {
+  // 用 DOMParser 而非游离 div 的 innerHTML：不触发任何资源加载/脚本执行语义，
+  // 且返回独立 document，便于单测（jsdom 环境同样可用）。
+  // 先摘除 script/style：textContent 本会包含 body 内 script 的源码文本，取正文不想要它
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  doc.querySelectorAll("script, style, noscript, template").forEach((el) => el.remove());
+  return doc.body.textContent || "";
+}
+
 export function bodyParagraphs(msg) {
   const parts = [];
   collectParts(msg.payload, parts, []);
@@ -73,11 +82,7 @@ export function bodyParagraphs(msg) {
   if (plain) text = plain.text;
   else {
     const html = parts.find((p) => p.mime === "text/html");
-    if (html) {
-      const div = document.createElement("div");
-      div.innerHTML = html.text;
-      text = div.textContent || "";
-    }
+    if (html) text = parseHtmlToText(html.text);
   }
   const paras = text
     .split(/\n{2,}|\r\n{2,}/)

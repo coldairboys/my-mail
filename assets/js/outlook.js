@@ -4,6 +4,7 @@
    不需要、也不使用 client_secret）。权限：Mail.Read + Mail.Send + User.Read。
    v4 修复：searchAll 的 OData 编码（用 encodeURIComponent 包裹整个搜索短语）。 */
 import { bytesToB64url as b64url } from "./utils.js";
+import { parseHtmlToText } from "./mail-parse.js";
 
 (function () {
   "use strict";
@@ -246,13 +247,13 @@ import { bytesToB64url as b64url } from "./utils.js";
     if (msg.body && msg.body.content) {
       if (msg.body.contentType === "html") {
         bodyHtml = msg.body.content;
-        const div = document.createElement("div");
-        div.innerHTML = msg.body.content;
-        body = (div.textContent || "")
+        // DOMParser 替代 innerHTML：独立文档，不触发资源加载/脚本执行语义，且可单测
+        const text = parseHtmlToText(msg.body.content);
+        body = text
           .split(/\n{2,}/)
           .map((p) => p.trim())
           .filter(Boolean);
-        if (!body.length) body = [(div.textContent || "").trim() || "(无正文)"];
+        if (!body.length) body = [text.trim() || "(无正文)"];
       } else
         body = msg.body.content
           .split(/\n{2,}/)
