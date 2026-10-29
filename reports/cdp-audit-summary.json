@@ -1,0 +1,583 @@
+{
+  "Mobile_375": {
+    "winW": 375,
+    "winH": 667,
+    "docW": 375,
+    "docH": 667,
+    "hasHorizontalOverflow": false,
+    "overflowCount": 0,
+    "overflowingElements": [],
+    "sidebar": {
+      "display": "flex",
+      "position": "fixed",
+      "transform": "matrix(1, 0, 0, 1, -285.6, 0)",
+      "width": 272
+    },
+    "listPane": {
+      "display": "flex",
+      "width": 375
+    },
+    "readingPane": {
+      "display": "flex",
+      "width": 375
+    },
+    "smallButtonsCount": 64,
+    "smallButtonsSample": [
+      {
+        "id": "btnCloseSidebar",
+        "className": "icon-btn sidebar-close",
+        "label": "关闭菜单",
+        "width": 32,
+        "height": 32
+      },
+      {
+        "id": "btnAddAccount",
+        "className": "accounts-add",
+        "label": "添加账号",
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "btnCompose",
+        "className": "btn-compose",
+        "label": "写邮件",
+        "width": 247,
+        "height": 31
+      },
+      {
+        "id": "btnFocusSearch",
+        "className": "btn-ghost",
+        "label": "聚焦搜索",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "btnSettings",
+        "className": "btn-ghost",
+        "label": "打开设置",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "btnStats",
+        "className": "btn-ghost",
+        "label": "发件人分析",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "active",
+        "label": "收件箱",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "",
+        "label": "已加星标",
+        "width": 247,
+        "height": 29
+      }
+    ]
+  },
+  "Mobile_390": {
+    "winW": 390,
+    "winH": 844,
+    "docW": 390,
+    "docH": 844,
+    "hasHorizontalOverflow": false,
+    "overflowCount": 0,
+    "overflowingElements": [],
+    "sidebar": {
+      "display": "flex",
+      "position": "fixed",
+      "transform": "matrix(1, 0, 0, 1, -285.6, 0)",
+      "width": 272
+    },
+    "listPane": {
+      "display": "flex",
+      "width": 390
+    },
+    "readingPane": {
+      "display": "flex",
+      "width": 390
+    },
+    "smallButtonsCount": 64,
+    "smallButtonsSample": [
+      {
+        "id": "btnCloseSidebar",
+        "className": "icon-btn sidebar-close",
+        "label": "关闭菜单",
+        "width": 32,
+        "height": 32
+      },
+      {
+        "id": "btnAddAccount",
+        "className": "accounts-add",
+        "label": "添加账号",
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "btnCompose",
+        "className": "btn-compose",
+        "label": "写邮件",
+        "width": 247,
+        "height": 31
+      },
+      {
+        "id": "btnFocusSearch",
+        "className": "btn-ghost",
+        "label": "聚焦搜索",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "btnSettings",
+        "className": "btn-ghost",
+        "label": "打开设置",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "btnStats",
+        "className": "btn-ghost",
+        "label": "发件人分析",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "active",
+        "label": "收件箱",
+        "width": 247,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "",
+        "label": "已加星标",
+        "width": 247,
+        "height": 29
+      }
+    ]
+  },
+  "Desktop_1280": {
+    "winW": 1280,
+    "winH": 800,
+    "docW": 1280,
+    "docH": 800,
+    "hasHorizontalOverflow": false,
+    "overflowCount": 0,
+    "overflowingElements": [],
+    "sidebar": {
+      "display": "flex",
+      "position": "static",
+      "transform": "none",
+      "width": 236
+    },
+    "listPane": {
+      "display": "flex",
+      "width": 360
+    },
+    "readingPane": {
+      "display": "flex",
+      "width": 684
+    },
+    "smallButtonsCount": 115,
+    "smallButtonsSample": [
+      {
+        "id": "btnCloseSidebar",
+        "className": "icon-btn sidebar-close",
+        "label": "收起侧边栏",
+        "width": 32,
+        "height": 32
+      },
+      {
+        "id": "btnAddAccount",
+        "className": "accounts-add",
+        "label": "添加账号",
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "btnCompose",
+        "className": "btn-compose",
+        "label": "写邮件",
+        "width": 201,
+        "height": 31
+      },
+      {
+        "id": "btnFocusSearch",
+        "className": "btn-ghost",
+        "label": "聚焦搜索",
+        "width": 201,
+        "height": 29
+      },
+      {
+        "id": "btnSettings",
+        "className": "btn-ghost",
+        "label": "打开设置",
+        "width": 201,
+        "height": 29
+      },
+      {
+        "id": "btnStats",
+        "className": "btn-ghost",
+        "label": "发件人分析",
+        "width": 201,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "active",
+        "label": "收件箱",
+        "width": 201,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "",
+        "label": "已加星标",
+        "width": 201,
+        "height": 29
+      }
+    ]
+  },
+  "Desktop_1920": {
+    "winW": 1920,
+    "winH": 1080,
+    "docW": 1920,
+    "docH": 1080,
+    "hasHorizontalOverflow": false,
+    "overflowCount": 0,
+    "overflowingElements": [],
+    "sidebar": {
+      "display": "flex",
+      "position": "static",
+      "transform": "none",
+      "width": 236
+    },
+    "listPane": {
+      "display": "flex",
+      "width": 360
+    },
+    "readingPane": {
+      "display": "flex",
+      "width": 1324
+    },
+    "smallButtonsCount": 115,
+    "smallButtonsSample": [
+      {
+        "id": "btnCloseSidebar",
+        "className": "icon-btn sidebar-close",
+        "label": "收起侧边栏",
+        "width": 32,
+        "height": 32
+      },
+      {
+        "id": "btnAddAccount",
+        "className": "accounts-add",
+        "label": "添加账号",
+        "width": 24,
+        "height": 24
+      },
+      {
+        "id": "btnCompose",
+        "className": "btn-compose",
+        "label": "写邮件",
+        "width": 211,
+        "height": 31
+      },
+      {
+        "id": "btnFocusSearch",
+        "className": "btn-ghost",
+        "label": "聚焦搜索",
+        "width": 211,
+        "height": 29
+      },
+      {
+        "id": "btnSettings",
+        "className": "btn-ghost",
+        "label": "打开设置",
+        "width": 211,
+        "height": 29
+      },
+      {
+        "id": "btnStats",
+        "className": "btn-ghost",
+        "label": "发件人分析",
+        "width": 211,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "active",
+        "label": "收件箱",
+        "width": 211,
+        "height": 29
+      },
+      {
+        "id": "",
+        "className": "",
+        "label": "已加星标",
+        "width": 211,
+        "height": 29
+      }
+    ]
+  },
+  "a11yCheck": {
+    "totalFocusable": 139,
+    "missingNameCount": 0,
+    "missingNameList": [],
+    "focusOrderSample": [
+      {
+        "index": 0,
+        "tagName": "A",
+        "id": "",
+        "className": "skip-link",
+        "accessibleName": "跳到邮件列表",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 1,
+        "tagName": "BUTTON",
+        "id": "btnCloseSidebar",
+        "className": "icon-btn sidebar-close",
+        "accessibleName": "收起侧边栏",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": "true",
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 2,
+        "tagName": "BUTTON",
+        "id": "btnAddAccount",
+        "className": "accounts-add",
+        "accessibleName": "添加账号",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 3,
+        "tagName": "BUTTON",
+        "id": "",
+        "className": "acct-btn",
+        "accessibleName": "demo@mymail.app",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 4,
+        "tagName": "BUTTON",
+        "id": "btnCompose",
+        "className": "btn-compose",
+        "accessibleName": "写邮件",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 5,
+        "tagName": "BUTTON",
+        "id": "btnFocusSearch",
+        "className": "btn-ghost",
+        "accessibleName": "聚焦搜索",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 6,
+        "tagName": "BUTTON",
+        "id": "btnSettings",
+        "className": "btn-ghost",
+        "accessibleName": "打开设置",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 7,
+        "tagName": "BUTTON",
+        "id": "btnStats",
+        "className": "btn-ghost",
+        "accessibleName": "发件人分析",
+        "hasAccessibleName": true,
+        "role": null,
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 8,
+        "tagName": "LI",
+        "id": "",
+        "className": "active",
+        "accessibleName": "收件箱",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 9,
+        "tagName": "LI",
+        "id": "",
+        "className": "",
+        "accessibleName": "已加星标",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 10,
+        "tagName": "LI",
+        "id": "",
+        "className": "",
+        "accessibleName": "重要邮件",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 11,
+        "tagName": "LI",
+        "id": "",
+        "className": "",
+        "accessibleName": "已延后",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 12,
+        "tagName": "LI",
+        "id": "",
+        "className": "",
+        "accessibleName": "草稿",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 13,
+        "tagName": "LI",
+        "id": "",
+        "className": "",
+        "accessibleName": "已发送",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      },
+      {
+        "index": 14,
+        "tagName": "LI",
+        "id": "",
+        "className": "",
+        "accessibleName": "所有邮件",
+        "hasAccessibleName": true,
+        "role": "button",
+        "ariaExpanded": null,
+        "ariaPressed": null,
+        "ariaSelected": null
+      }
+    ]
+  },
+  "focusOutlineCheck": [
+    {
+      "selector": "icon-btn sidebar-close",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "none"
+    },
+    {
+      "selector": "btn-compose",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "rgba(16, 24, 40, 0.05) 0px 1px 2px 0px"
+    },
+    {
+      "selector": "btn-ghost",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "none"
+    },
+    {
+      "selector": "btn-ghost",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "none"
+    },
+    {
+      "selector": "btn-ghost",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "none"
+    },
+    {
+      "selector": "icon-btn menu-btn",
+      "outline": "rgb(154, 161, 173) none 3px",
+      "outlineWidth": "3px",
+      "outlineStyle": "none",
+      "outlineColor": "rgb(154, 161, 173)",
+      "boxShadow": "none"
+    },
+    {
+      "selector": "icon-btn",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "none"
+    },
+    {
+      "selector": "icon-btn",
+      "outline": "rgb(16, 16, 16) auto 1px",
+      "outlineWidth": "1px",
+      "outlineStyle": "auto",
+      "outlineColor": "rgb(16, 16, 16)",
+      "boxShadow": "none"
+    }
+  ]
+}
